@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aspio Business App | QA Checklist</title>
+<style>
+:root{--bg:#f4f1fa;--card:#fff;--ink:#1d1630;--mut:#665c78;--line:#e4dcf0;--pur:#6d00cc;--soft:#f3ebff;--pass:#0f7a42;--fail:#c4303f;--blk:#a35f00;--na:#756d85;--hero:linear-gradient(135deg,#efe3ff 0%,#e0ccff 55%,#d3b8ff 100%);--hero-ink:#2a0a55;--hero-mut:#5b3a8c;--pill:rgba(109,0,204,.12);--shadow:0 1px 2px rgba(60,20,100,.06),0 6px 18px rgba(60,20,100,.07);color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14101c;--card:#1e1829;--ink:#f1ecf8;--mut:#a79db8;--line:#322a42;--pur:#a35cf0;--soft:#2c2140;--pass:#3fc17c;--fail:#ff6b7d;--blk:#f0a73a;--na:#9d94ae;--shadow:none;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14101c;--card:#1e1829;--ink:#f1ecf8;--mut:#a79db8;--line:#322a42;--pur:#a35cf0;--soft:#2c2140;--pass:#3fc17c;--fail:#ff6b7d;--blk:#f0a73a;--na:#9d94ae;--shadow:none;color-scheme:dark}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--hero:linear-gradient(130deg,#3a0a73,#6a1fc4);--hero-ink:#fff;--hero-mut:#dcc8f7;--pill:rgba(255,255,255,.16)}}
+:root[data-theme="dark"]{--hero:linear-gradient(130deg,#3a0a73,#6a1fc4);--hero-ink:#fff;--hero-mut:#dcc8f7;--pill:rgba(255,255,255,.16)}
+*{box-sizing:border-box}html{scroll-padding-top:150px}
+.card[data-s="Passed"]{background:color-mix(in srgb,var(--pass) 6%,var(--card))}.card[data-s="Failed"]{background:color-mix(in srgb,var(--fail) 6%,var(--card))}.card[data-s="Blocked"]{background:color-mix(in srgb,var(--blk) 7%,var(--card))}
+.theme{position:absolute;top:0;right:0;display:flex;gap:6px;align-items:center;border:1px solid color-mix(in srgb,var(--hero-ink) 25%,transparent);background:var(--pill);color:var(--hero-ink);border-radius:99px;padding:6px 13px;font-size:13px;font-weight:650;cursor:pointer}
+.theme:hover{background:color-mix(in srgb,var(--hero-ink) 14%,transparent)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--card);z-index:30}
+button,input,select,textarea{font:inherit;color:inherit}
+.hero{background:var(--hero);color:var(--hero-ink);padding:28px 20px 56px}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+.hero .wrap{padding:0;position:relative}
+.hero h1{margin:0 0 6px;font-size:26px;letter-spacing:-.02em}
+.hero p{margin:0;color:var(--hero-mut);max-width:620px}
+.pill{display:inline-block;background:var(--pill);border-radius:99px;padding:3px 11px;font-size:12px;font-weight:600;margin-bottom:12px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin:-34px auto 14px;max-width:900px;padding:0 16px}
+.bar-in{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow)}
+.bar-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.bar-top b{font-size:20px}.bar-top span{color:var(--mut);font-size:13px}
+.track{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--line)}
+.track i{display:block;height:100%;transition:width .35s}
+.chips{display:flex;gap:6px;margin-top:10px;overflow-x:auto;scrollbar-width:none}
+.chip{flex:none;border:1px solid var(--line);background:transparent;border-radius:99px;padding:5px 11px;font-size:13px;cursor:pointer;display:flex;gap:6px;align-items:center}
+.chip b{font-weight:700}.chip[aria-pressed="true"]{background:var(--pur);border-color:var(--pur);color:#fff}
+.dotc{width:8px;height:8px;border-radius:50%;display:inline-block}
+.note{background:var(--soft);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--mut)}
+.note summary{cursor:pointer;font-weight:650;color:var(--ink)}.note p{margin:8px 0 0}
+.tools{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:6px}
+.tools input,.tools select,.field{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.tools input:focus,.field:focus,textarea:focus{outline:2px solid var(--pur);outline-offset:1px}
+.row2{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+.btn{border:0;border-radius:10px;padding:9px 14px;background:var(--pur);color:#fff;font-weight:650;cursor:pointer}
+.btn.sec{background:var(--soft);color:var(--pur)}.btn.out{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn:active{transform:scale(.97)}
+.gh{display:flex;justify-content:space-between;align-items:baseline;margin:26px 2px 8px}
+.gh h2{margin:0;font-size:17px}.gh span{color:var(--mut);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:14px;margin:8px 0;box-shadow:var(--shadow);transition:border-color .2s}
+.card[data-s="Passed"]{border-left-color:var(--pass)}.card[data-s="Failed"]{border-left-color:var(--fail)}.card[data-s="Blocked"]{border-left-color:var(--blk)}.card[data-s="Not applicable"]{border-left-color:var(--na);opacity:.75}
+.head{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 12px 12px 14px;cursor:pointer}
+.id{font-size:11px;font-weight:800;color:var(--pur);background:var(--soft);border-radius:6px;padding:2px 7px;margin-right:6px}
+.title{font-weight:650;margin-top:4px}
+.meta{display:flex;gap:10px;flex-wrap:wrap;color:var(--mut);font-size:12px;margin-top:3px}
+.pr{font-weight:700}.pr.Critical{color:var(--fail)}.pr.High{color:var(--blk)}.pr.Medium{color:var(--pur)}
+.seg{display:flex;gap:4px}
+.seg button{border:1px solid var(--line);background:transparent;border-radius:9px;padding:7px 9px;font-size:12px;font-weight:700;cursor:pointer;min-width:40px;color:var(--mut)}
+.seg button:hover{background:var(--soft)}
+.seg button[data-st="Passed"].on{background:var(--pass);border-color:var(--pass);color:#fff}
+.seg button[data-st="Failed"].on{background:var(--fail);border-color:var(--fail);color:#fff}
+.seg button[data-st="Blocked"].on{background:var(--blk);border-color:var(--blk);color:#fff}
+.seg button[data-st="Not applicable"].on{background:var(--na);border-color:var(--na);color:#fff}
+.body{display:none;padding:2px 16px 16px;border-top:1px solid var(--line)}
+.card.open .body{display:block;animation:in .2s}
+@keyframes in{from{opacity:0;transform:translateY(-4px)}}
+.lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:var(--mut);margin:14px 0 6px}
+.exp{background:var(--soft);border-radius:10px;padding:10px 12px}
+.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0;cursor:pointer}
+.step input{width:18px;height:18px;margin-top:2px;accent-color:var(--pur);flex:none}
+.step input:checked+span{color:var(--mut);text-decoration:line-through}
+textarea{width:100%;min-height:64px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);resize:vertical}
+.card.need textarea{border-color:var(--fail)}
+.chev{display:none}
+.risks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.risk{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--na);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--mut)}
+.risk b{display:block;color:var(--ink);font-size:14px;margin-bottom:3px}.risk.c{border-left-color:var(--fail)}.risk.h{border-left-color:var(--blk)}.risk.m{border-left-color:var(--pur)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.warn{display:none;background:color-mix(in srgb,var(--fail) 14%,transparent);border:1px solid var(--fail);color:var(--fail);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-weight:650}
+.warn.show{display:block}
+.empty{text-align:center;color:var(--mut);padding:40px 0}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin:26px 0 40px}
+code{background:var(--soft);padding:1px 5px;border-radius:5px;font-size:12px}
+@media(max-width:640px){.tools{grid-template-columns:1fr 1fr}.tools input{grid-column:1/-1}.head{grid-template-columns:1fr}.seg button{flex:1}.risks,.grid4{grid-template-columns:1fr}.hero h1{font-size:22px}}
+@media print{.bar,.tools,.row2,.seg,.btn{display:none!important}.body{display:block!important}.hero{background:#fff!important;--hero-ink:#1d1630;--hero-mut:#555;--pill:#eee}.theme{display:none}.card{break-inside:avoid;box-shadow:none}}
+</style>
+</head>
+<body>
+<header class="hero"><div class="wrap">
+  <button class="theme" id="theme" type="button"></button>
+  <span class="pill">Main branch · Manual QA</span>
+  <h1>Aspio Business App</h1>
+  <p>Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.</p>
+</div></header>
+
+<div class="bar"><div class="bar-in">
+  <div class="bar-top"><b id="pct">0%</b><span id="doneTxt"></span></div>
+  <div class="track" aria-hidden="true"><i id="tp" style="background:var(--pass)"></i><i id="tf" style="background:var(--fail)"></i><i id="tb" style="background:var(--blk)"></i><i id="tn" style="background:var(--na)"></i></div>
+  <div class="chips" id="chips"></div>
+</div></div>
+
+<main class="wrap">
+  <details class="note"><summary>Before you start</summary><p><b>All tests begin as Not tested.</b> Run them against a safe test company or environment. Avoid permanent deletion or real customer communications unless explicitly approved. Record evidence and defects before changing test data.</p></details>
+
+  <div class="tools">
+    <input id="q" type="search" placeholder="Search ID, module or test…" aria-label="Search tests">
+    <select id="mod" aria-label="Module"><option value="">All modules</option></select>
+    <select id="pri" aria-label="Priority"><option value="">All priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+  </div>
+  <div class="row2">
+    <button class="btn" id="next">Next untested →</button>
+    <button class="btn sec" id="toggleAll">Expand all</button>
+    <button class="btn sec" id="csv">Export CSV</button>
+    <button class="btn out" id="print">Print</button>
+    <button class="btn out" id="reset">Reset</button>
+  </div>
+  <div style="color:var(--mut);font-size:12px">Auto-saved in this browser. <span id="shown"></span></div>
+
+  <div id="list"></div>
+
+  <div class="gh"><h2>PM sign-off</h2></div>
+  <section class="panel">
+    <div class="warn" id="warn"></div>
+    <div class="grid4">
+      <input class="field" id="tester" placeholder="QA tester / PM name" aria-label="Tester">
+      <input class="field" id="build" placeholder="Build / version" aria-label="Build">
+      <input class="field" id="date" type="date" aria-label="Test date">
+      <select class="field" id="decision" aria-label="Decision"><option value="">Approval decision</option><option>Approved</option><option>Approved with known issues</option><option>Not approved</option><option>Retest required</option></select>
+    </div>
+    <p style="color:var(--mut);font-size:13px">Release rule: do not approve while any Critical sign-off check is Failed or Blocked. Review all High-priority failures and open defects with the development team.</p>
+    <textarea id="pmNotes" style="min-height:90px" placeholder="Defect references, decisions, retest notes and outstanding risks…" aria-label="PM notes"></textarea>
+  </section>
+  <p class="foot">Aspio Business App QA checklist · Status and notes are stored locally in this browser.</p>
+</main>
+
+<script>
+const DATA={"cases": [{"id": "QF-A1-001", "module": "Dashboard", "check": "Dashboard loads and displays business metrics/overview without errors", "steps": "1. Log in as company owner/manager. 2. Navigate to Dashboard. 3. Observe top-bar, metric cards, and any notifications. 4. Refresh page.", "expected": "Dashboard shell renders; metric cards show values; no blank screens or console errors blocking load; top-bar navigation works.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A1-002", "module": "Dashboard", "check": "Sidebar navigation opens all main modules", "steps": "1. From Dashboard, click each main sidebar item: Customers, Services, Staff, Calendar, Bookings, Categories, Settings, Aspio Products, Company Information, Loyalty, Deals, Reviews. 2. Confirm each route loads (no 404/blank).", "expected": "Every module link navigates to its page and the page shell renders.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A1-003", "module": "Dashboard", "check": "User profile / logout", "steps": "1. Click user avatar/profile menu. 2. Select logout/sign-out (if present). 3. Confirm redirected to login.", "expected": "Session clears; login page shown; cannot access dashboard without re-login.", "priority": "High", "status": "Not tested"}, {"id": "QF-A2-001", "module": "Customer", "check": "Create a new customer", "steps": "1. Go to Customers page. 2. Click Add Customer. 3. Fill first name, last name, email, phone. 4. Save.", "expected": "Customer appears in the customer list with correct details; success toast shown.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A2-002", "module": "Customer", "check": "Duplicate email is rejected", "steps": "1. Create customer with email `test@example.com`. 2. Try to create another customer with the same email (case-insensitive, e.g. `TEST@Example.com`).", "expected": "Second create is blocked with \"Customer email already exists\" / 409-style error; no duplicate row created.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A2-003", "module": "Customer", "check": "View customer details", "steps": "1. Open an existing customer from the list (click row / detail modal).", "expected": "All saved fields display correctly: name, email, phone, address, tags, created date.", "priority": "High", "status": "Not tested"}, {"id": "QF-A2-004", "module": "Customer", "check": "Edit an existing customer", "steps": "1. Edit a customer's phone and address. 2. Save. 3. Re-open the customer.", "expected": "Updated values persist and display.", "priority": "High", "status": "Not tested"}, {"id": "QF-A2-005", "module": "Customer", "check": "Soft-delete (trash) a customer", "steps": "1. From customer list or detail, use Delete/Trash action. 2. Confirm.", "expected": "Customer disappears from active list; moves to Trash view; still recoverable.", "priority": "High", "status": "Not tested"}, {"id": "QF-A2-006", "module": "Customer", "check": "Restore a trashed customer", "steps": "1. Go to Trash view. 2. Find the trashed customer. 3. Click Restore.", "expected": "Customer reappears in the active customer list with original data intact.", "priority": "High", "status": "Not tested"}, {"id": "QF-A2-007", "module": "Customer", "check": "Filter customers", "steps": "1. Use filter tabs / search on the customers page. 2. Filter by a name fragment.", "expected": "List updates to show only matching customers.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A3-001", "module": "Services", "check": "Create a new service", "steps": "1. Go to Services page. 2. Click Add Service. 3. Enter service name, description, price, duration. 4. Assign to a category. 5. Save.", "expected": "Service appears in service list with correct name, price, duration, category.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A3-002", "module": "Services", "check": "Edit a service", "steps": "1. Edit service price and duration. 2. Save. 3. Re-open service.", "expected": "Changes persist and display.", "priority": "High", "status": "Not tested"}, {"id": "QF-A3-003", "module": "Services", "check": "Delete / trash a service", "steps": "1. Trash a service from the list or actions menu. 2. Confirm.", "expected": "Service removed from active list; appears in Trash; bookings referencing it (if any) handled gracefully.", "priority": "High", "status": "Not tested"}, {"id": "QF-A3-004", "module": "Services", "check": "Restore a trashed service", "steps": "1. Go to Trash view. 2. Restore the service.", "expected": "Service reappears in active service list.", "priority": "High", "status": "Not tested"}, {"id": "QF-A4-001", "module": "Categories", "check": "Create a service category", "steps": "1. Go to Categories page. 2. Add category with name and color. 3. Save.", "expected": "Category appears in category list with chosen color; can be assigned to services.", "priority": "High", "status": "Not tested"}, {"id": "QF-A4-002", "module": "Categories", "check": "Edit/delete category", "steps": "1. Edit category name/color. 2. Save. 3. Trash category.", "expected": "Changes persist; category can be trashed/restored.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A5-001", "module": "Staff", "check": "Add a new staff member", "steps": "1. Go to Staff page. 2. Click Add Staff / Add Assistant. 3. Enter name, email, phone. 4. Save.", "expected": "Staff member appears in staff list; can be assigned to bookings.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A5-002", "module": "Staff", "check": "Assign module roles/permissions to staff", "steps": "1. Open a staff member's roles/permissions panel. 2. Toggle module access (e.g. enable Calendar, disable Settings). 3. Save.", "expected": "Staff role reflects selected modules; access restricted accordingly.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A5-003", "module": "Staff", "check": "Set staff availability / working hours", "steps": "1. Open staff availability schedule. 2. Set working days/hours for a day. 3. Save.", "expected": "Availability saved; staff shown as available during those hours on calendar.", "priority": "High", "status": "Not tested"}, {"id": "QF-A5-004", "module": "Staff", "check": "Edit and trash staff", "steps": "1. Edit staff details. 2. Trash staff. 3. Restore from Trash.", "expected": "Edit persists; trash/restore works like customers.", "priority": "High", "status": "Not tested"}, {"id": "QF-A6-001", "module": "Bookings", "check": "Create a new booking", "steps": "1. Go to Bookings or Calendar. 2. Click Add Booking. 3. Select customer, staff, service, date, time slot. 4. Confirm.", "expected": "Booking created; appears in bookings list and on calendar; totals calculated correctly.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A6-002", "module": "Bookings", "check": "Booking totals calculation", "steps": "1. Add a service with price to a booking. 2. Add an add-on if available. 3. Observe totals before confirming.", "expected": "Subtotal, tax (if any), and grand total are correct and update when services change.", "priority": "High", "status": "Not tested"}, {"id": "QF-A6-003", "module": "Bookings", "check": "Edit an existing booking (reschedule)", "steps": "1. Open a future booking. 2. Change date/time or staff. 3. Save.", "expected": "Booking moved to new slot; calendar updated; no duplicate slot created.", "priority": "High", "status": "Not tested"}, {"id": "QF-A6-004", "module": "Bookings", "check": "Cancel / trash a booking", "steps": "1. Trash a booking. 2. Confirm.", "expected": "Booking removed from active list/calendar; appears in Trash.", "priority": "High", "status": "Not tested"}, {"id": "QF-A6-005", "module": "Bookings", "check": "View booking details", "steps": "1. Click a booking in the list/calendar.", "expected": "Modal/drawer shows customer, staff, service, date, time, price, status.", "priority": "High", "status": "Not tested"}, {"id": "QF-A7-001", "module": "Calendar", "check": "Calendar day/week view loads and shows bookings", "steps": "1. Go to Calendar page. 2. Switch between day and week view. 3. Create a booking and confirm it appears on the correct date/time.", "expected": "Bookings render on correct date/time slots; day/week toggle works.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-A7-002", "module": "Calendar", "check": "Block time slot", "steps": "1. Open Block Time modal. 2. Select staff, date, time range, reason. 3. Save.", "expected": "Blocked slot shows on calendar; no booking can be made in that range for that staff.", "priority": "High", "status": "Not tested"}, {"id": "QF-A7-003", "module": "Calendar", "check": "Staff availability governs bookable slots", "steps": "1. Set a staff member's availability for a day. 2. Try to book outside those hours.", "expected": "Slots outside availability are not bookable (or flagged).", "priority": "High", "status": "Not tested"}, {"id": "QF-A8-001", "module": "Company Information", "check": "Edit company details", "steps": "1. Go to Company Information / Settings. 2. Edit business name, address, currency, phone. 3. Save.", "expected": "Changes persist; reflected across dashboard/header.", "priority": "High", "status": "Not tested"}, {"id": "QF-A8-002", "module": "Settings", "check": "Set working hours", "steps": "1. Open working-hours settings. 2. Set open/close times per day. 3. Save.", "expected": "Working hours saved; booking slots generated within these hours.", "priority": "High", "status": "Not tested"}, {"id": "QF-A8-003", "module": "Settings", "check": "Notification settings", "steps": "1. Toggle email/SMS notification preferences. 2. Save.", "expected": "Preferences saved and reflected.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A9-001", "module": "Aspio Products", "check": "View/add/edit product", "steps": "1. Go to Aspio Products page. 2. Add a product. 3. Edit and save.", "expected": "Product appears in list; edits persist.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A10-001", "module": "Loyalty", "check": "View loyalty card for a customer", "steps": "1. Open a customer's loyalty card. 2. Observe stamp count and progress.", "expected": "Loyalty card displays correct stamps/rewards for that customer.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A10-002", "module": "Loyalty", "check": "Add a stamp", "steps": "1. Use Add Stamp / manual stamp action on a loyalty card.", "expected": "Stamp count increments; progress updates.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A11-001", "module": "Deals", "check": "Create and view a deal", "steps": "1. Go to Deals page. 2. Create a discount deal. 3. Save.", "expected": "Deal appears in deals list; applicable to selected services.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A12-001", "module": "Reviews", "check": "View customer reviews", "steps": "1. Go to Reviews page. 2. Observe listed reviews and ratings.", "expected": "Reviews display with customer name, rating, comment, date.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A13-001", "module": "Receipts", "check": "Generate/view a receipt", "steps": "1. Go to Receipts page. 2. Generate a receipt for a booking. 3. Preview/print.", "expected": "Receipt PDF renders with correct booking/customer/company details.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-A14-001", "module": "Trash", "check": "Bulk restore and bulk delete", "steps": "1. Go to Trash page. 2. Select multiple trashed items. 3. Bulk Restore. 4. Select items and Bulk Delete (permanent).", "expected": "Selected items restored to active lists OR permanently removed. Trash count updates.", "priority": "High", "status": "Not tested"}, {"id": "QF-B1-001", "module": "Customer \u2192 Booking", "check": "Customer created then used in a booking", "steps": "1. Create a new customer. 2. Create a booking selecting that customer. 3. Open customer detail.", "expected": "Booking is linked to customer; customer detail shows booking history (if implemented) or booking references customer correctly.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-B1-002", "module": "Customer \u2192 Loyalty", "check": "Customer has a loyalty card", "steps": "1. Create customer. 2. Check loyalty card exists/is creatable for them. 3. Add a stamp via a completed booking.", "expected": "Loyalty card linked to customer; stamps accumulate.", "priority": "Medium", "status": "Not tested"}, {"id": "QF-B2-001", "module": "Service \u2192 Category \u2192 Booking", "check": "Service with category and scheduled price used in booking", "steps": "1. Create a category. 2. Create service in that category with a base price. 3. Add a scheduled price for a future date. 4. Book the service on that date.", "expected": "Booking uses scheduled price (not base price) for the future date; category grouping works.", "priority": "High", "status": "Not tested"}, {"id": "QF-B3-001", "module": "Staff \u2192 Availability \u2192 Booking", "check": "Staff availability controls bookings", "steps": "1. Add staff. 2. Set availability Mon-Fri 09:00-17:00. 3. Try booking at 18:00 (outside availability).", "expected": "18:00 slot not bookable for that staff; 10:00 is bookable.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-B3-002", "module": "Staff \u2192 Roles \u2192 Dashboard access", "check": "Staff with restricted module roles cannot access disabled modules", "steps": "1. Log in as a staff member with only Calendar access (no Settings, no Customers). 2. Try to navigate to Settings and Customers pages.", "expected": "Restricted modules are hidden or return forbidden/unauthorized; staff can access Calendar.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-B4-001", "module": "Bookings", "check": "End-to-end: customer \u2192 service \u2192 staff \u2192 slot \u2192 confirm", "steps": "1. Create customer. 2. Create service. 3. Add staff with availability. 4. Create booking end-to-end. 5. Confirm booking appears on calendar and in bookings list.", "expected": "Full chain works; booking visible everywhere expected; status correct.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-B4-002", "module": "Bookings", "check": "Double-booking prevention (same staff, same slot)", "steps": "1. Book staff X at 10:00 on a date. 2. Try to book staff X at 10:00 same date (different customer/service).", "expected": "Second booking blocked or slot shown as unavailable.", "priority": "Critical", "status": "Not tested"}, {"id": "QF-B5-001", "module": "Calendar", "check": "Week view shows all staff bookings side by side", "steps": "1. Create bookings for multiple staff on the same day. 2. Open week view.", "expected": "All staff bookings visible in correct columns/times.", "priority": "High", "status": "Not tested"}, {"id": "QF-B5-002", "module": "Calendar", "check": "Navigate dates forward/backward", "steps": "1. Use date picker / arrows to move to another week. 2. Create a booking there. 3. Return to today.", "expected": "Calendar navigates correctly; booking stays on the selected date.", "priority": "High", "status": "Not tested"}, {"id": "QF-B6-001", "module": "Cross-module", "check": "Deleting a service referenced by bookings", "steps": "1. Create a service and bookings using it. 2. Trash the service.", "expected": "Service trashed; existing bookings remain accessible (or graceful handling shown). No crash.", "priority": "High", "status": "Not tested"}, {"id": "QF-B6-002", "module": "Cross-module", "check": "Trashing a customer with bookings", "steps": "1. Create customer with bookings. 2. Trash the customer.", "expected": "Customer moved to trash; bookings handled gracefully (not orphaned in a way that breaks the UI).", "priority": "High", "status": "Not tested"}, {"id": "QF-B6-003", "module": "Cross-module", "check": "Company working hours affect booking slot generation", "steps": "1. Change company working hours (e.g. close at 15:00). 2. Try to book at 16:00.", "expected": "16:00 not offered as a bookable slot.", "priority": "High", "status": "Not tested"}], "critical": [["C1", "Authentication", "Login/logout works; session persists after refresh", "Log in, refresh the dashboard, log out, then try to open a dashboard page again.", "Session remains valid after refresh; logout clears the session and protected pages require login."], ["C2", "Permissions", "Owner/manager can access all modules", "Log in as an owner, then as a manager if available. Open the main modules.", "Authorized owner/manager accounts can access the modules allowed by their role."], ["C3", "Permissions", "Restricted staff cannot access disabled modules", "Use a staff account with limited module access. Try both sidebar navigation and direct URLs for disabled modules.", "Disabled modules are inaccessible; allowed modules remain accessible."], ["C4", "Customers", "Duplicate customer email is rejected clearly", "Create a customer, then attempt another customer using the same email with different letter casing.", "The second record is rejected with a clear message; no duplicate customer is created."], ["C5", "Booking", "End-to-end booking creation", "Create/select a customer, service and available staff member; choose an available slot and confirm.", "Booking is saved and appears in the bookings list and calendar with the correct details."], ["C6", "Booking / Calendar", "Double-booking prevention", "Create a booking for a staff member at a specific time. Attempt another booking for the same staff member and slot.", "The conflicting booking is blocked or the slot is clearly unavailable."], ["C7", "Staff / Booking", "Staff availability controls bookable slots", "Set a staff member's availability. Try booking within and outside those hours.", "Only valid availability slots can be booked."], ["C8", "Settings / Booking", "Company working hours constrain slots", "Change company opening hours, save, then try to book outside the new hours.", "Slots outside company working hours are not offered or cannot be confirmed."], ["C9", "Trash", "Trash/restore works without errors", "Trash a test customer or service, restore it, and verify the active record.", "Record moves to Trash and restores with its data intact; no error or data loss."], ["C10", "Booking / Totals", "Booking totals are accurate", "Create a booking with a service and an add-on if supported. Check subtotal, tax and total.", "Displayed totals match the configured prices and update correctly when selections change."], ["C11", "Booking / Calendar", "Rescheduling updates the calendar without duplicates", "Open a future booking, change its date/time, save, and inspect both old and new slots.", "Booking appears once at the new slot and is removed from the old slot."], ["C12", "Dashboard", "Dashboard loads without fatal errors", "Log in, open Dashboard, refresh, and inspect the page for blank sections or blocking errors.", "Dashboard loads and remains usable without a blank screen or fatal error."]]};
+const KEY="aspio-qa-checklist-v1",ST=["Passed","Failed","Blocked","Not applicable"],LBL={"Passed":"Pass","Failed":"Fail","Blocked":"Block","Not applicable":"N/A"};
+let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}
+const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(saved))}catch(e){}};
+const state=id=>saved[id]||{status:"Not tested",notes:"",done:[]};
+const put=(id,p)=>{saved[id]={...state(id),...p};store()};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $=s=>document.querySelector(s);
+const GRP=["Release sign-off","A · Basic functionality","B · Business workflows"],GSUB=["Complete these 12 checks before approving","Core screens and features","End-to-end flows across modules"];
+const items=[...DATA.critical.map(c=>({id:c[0],module:c[1],check:c[2],steps:c[3],expected:c[4],priority:"Critical",grp:0})),...DATA.cases.map(c=>({...c,grp:c.id.startsWith("QF-A")?1:2}))];
+const stepsOf=s=>String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
+let f={s:""};
+function card(it){const st=state(it.id),steps=stepsOf(it.steps);
+ return `<article class="card" data-id="${esc(it.id)}" data-s="${st.status}"><div class="head" tabindex="0" role="button" aria-expanded="false"><div><span class="id">${esc(it.id)}</span><div class="title">${esc(it.check)}</div><div class="meta"><span>${esc(it.module)}</span><span class="pr ${esc(it.priority)}">${esc(it.priority)}</span><span class="sp"></span></div></div><div class="seg">${ST.map(s=>`<button data-st="${s}" class="${st.status===s?"on":""}" aria-label="${s}" title="${s}">${LBL[s]}</button>`).join("")}</div></div>
+ <div class="body"><div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a bug ticket or evidence link…">${esc(st.notes)}</textarea></div></article>`}
+function render(){
+ const q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
+ const list=items.filter(c=>(!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p)&&(!f.s||state(c.id).status===f.s));
+ $("#shown").textContent=list.length+" of "+items.length+" shown";
+ let h="";[0,1,2].forEach(g=>{const a=list.filter(c=>c.grp===g);if(a.length)h+=`<div class="gh"><div><h2>${GRP[g]}</h2></div><span>${GSUB[g]} · ${a.length}</span></div>`+a.map(card).join("")});
+ $("#list").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
+ document.querySelectorAll(".card").forEach(refreshCard);stats();
+}
+function refreshCard(el){const id=el.dataset.id,st=state(id),n=el.querySelectorAll(".step").length,d=(st.done||[]).length;
+ el.dataset.s=st.status;el.querySelectorAll(".seg button").forEach(b=>b.classList.toggle("on",b.dataset.st===st.status));
+ el.querySelector(".sp").textContent=n>1?d+"/"+n+" steps":"";
+ el.classList.toggle("need",st.status==="Failed"&&!st.notes.trim())}
+function stats(){
+ const cnt={};items.forEach(c=>{const s=state(c.id).status;cnt[s]=(cnt[s]||0)+1});
+ const T=items.length,nt=cnt["Not tested"]||0,done=T-nt;
+ $("#pct").textContent=Math.round(done/T*100)+"%";$("#doneTxt").textContent=done+" of "+T+" tested";
+ [["tp","Passed"],["tf","Failed"],["tb","Blocked"],["tn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((cnt[s]||0)/T*100)+"%");
+ const defs=[["","All",T,"var(--pur)"],["Not tested","To do",nt,"var(--line)"],["Passed","Passed",cnt.Passed||0,"var(--pass)"],["Failed","Failed",cnt.Failed||0,"var(--fail)"],["Blocked","Blocked",cnt.Blocked||0,"var(--blk)"]];
+ $("#chips").innerHTML=defs.map(d=>`<button class="chip" data-f="${d[0]}" aria-pressed="${f.s===d[0]}"><span class="dotc" style="background:${d[3]}"></span>${d[1]} <b>${d[2]}</b></button>`).join("");
+ const bad=items.filter(c=>c.grp===0&&["Failed","Blocked"].includes(state(c.id).status)).length,w=$("#warn");
+ w.classList.toggle("show",bad>0);w.textContent="Release blocked: "+bad+" Critical sign-off check"+(bad>1?"s are":" is")+" Failed or Blocked."}
+function open(el,on){el.classList.toggle("open",on);el.querySelector(".head").setAttribute("aria-expanded",on)}
+function setStatus(el,s){const id=el.dataset.id,was=el.classList.contains("open"),cur=state(id).status,next=cur===s?"Not tested":s;
+ put(id,{status:next});refreshCard(el);stats();
+ if(next==="Failed"){open(el,true);const t=el.querySelector("textarea");t.focus({preventScroll:true})}
+ else if(next==="Passed"&&was){open(el,false);goNext(el)}}
+function goNext(from){let n=from?from.nextElementSibling:document.querySelector(".card");
+ for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
+ if(!n&&from){return goNext(null)}
+ if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("Nothing left to test in this view. Nice work!")}
+$("#list").addEventListener("click",e=>{const el=e.target.closest(".card");if(!el)return;const b=e.target.closest("[data-st]");
+ if(b){setStatus(el,b.dataset.st);return}
+ if(e.target.closest(".body"))return;open(el,!el.classList.contains("open"))});
+$("#list").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("head")){e.preventDefault();const el=e.target.closest(".card");open(el,!el.classList.contains("open"))}});
+$("#list").addEventListener("change",e=>{if(!e.target.matches(".step input"))return;const el=e.target.closest(".card"),id=el.dataset.id,i=+e.target.dataset.i;
+ const d=new Set(state(id).done||[]);e.target.checked?d.add(i):d.delete(i);put(id,{done:[...d]});refreshCard(el)});
+$("#list").addEventListener("input",e=>{if(!e.target.matches("textarea"))return;const el=e.target.closest(".card");put(el.dataset.id,{notes:e.target.value});refreshCard(el)});
+$("#chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;f.s=f.s===b.dataset.f?"":b.dataset.f;render()});
+["#q","#mod","#pri"].forEach(s=>$(s).addEventListener("input",render));
+[...new Set(DATA.cases.map(c=>c.module))].sort().forEach(m=>{const o=document.createElement("option");o.textContent=m;$("#mod").appendChild(o)});
+const root=document.documentElement;
+function applyTheme(t){root.dataset.theme=t;$("#theme").textContent=t==="dark"?"☀ Light mode":"☾ Dark mode";$("#theme").setAttribute("aria-label","Switch to "+(t==="dark"?"light":"dark")+" mode")}
+let th=null;try{th=localStorage.getItem("aspio-qa-theme")}catch(e){}
+applyTheme(th||"light");
+$("#theme").onclick=()=>{const t=root.dataset.theme==="dark"?"light":"dark";applyTheme(t);try{localStorage.setItem("aspio-qa-theme",t)}catch(e){}};
+$("#next").onclick=()=>goNext(null);
+let all=false;$("#toggleAll").onclick=()=>{all=!all;document.querySelectorAll(".card").forEach(c=>open(c,all));$("#toggleAll").textContent=all?"Collapse all":"Expand all"};
+$("#print").onclick=()=>window.print();
+$("#reset").onclick=()=>{if(confirm("Reset all test statuses and notes saved in this browser?")){saved={};store();render()}};
+$("#csv").onclick=()=>{const r=[["ID","Module","Test","Priority","Status","Steps","Expected result","Notes"]];
+ items.forEach(c=>r.push([c.id,c.module,c.check,c.priority,state(c.id).status,c.steps,c.expected,state(c.id).notes]));
+ const csv=r.map(x=>x.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download="Aspio_QA_Test_Results.csv";a.click();URL.revokeObjectURL(a.href)};
+["tester","build","date","decision","pmNotes"].forEach(id=>{const el=$("#"+id);try{el.value=localStorage.getItem("aspio-qa-"+id)||""}catch(e){}el.addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-"+id,el.value)}catch(e){}})});
+render();
+</script>
+</body>
+</html>
