@@ -7,16 +7,17 @@ const state=id=>saved[id]||{status:"Not tested",notes:"",done:[]};
 const put=(id,p)=>{saved[id]={...state(id),...p};store()};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=s=>document.querySelector(s);
-const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList")].forEach(L=>L.addEventListener(t,fn));
+const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList"),$("#developList")].forEach(L=>L.addEventListener(t,fn));
 const GRP=["Release sign-off","A · Basic functionality","B · Business workflows"],GSUB=["Complete these 12 checks before approving","Core screens and features","End-to-end flows across modules"];
 const items=[...DATA.critical.map(c=>({id:c[0],module:c[1],check:c[2],steps:c[3],expected:c[4],priority:"Critical",grp:0})),...DATA.cases.map(c=>({...c,grp:c.id.startsWith("QF-A")?1:2}))];
 const stepsOf=s=>String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
-let f={s:""},curPage="check",useLast=false;
+let f={s:""},curPage="check",useLast=false,useDevelop=false;
 function card(it){const st=state(it.id),steps=stepsOf(it.steps);
  return `<article class="card" data-id="${esc(it.id)}" data-s="${st.status}"><div class="head" tabindex="0" role="button" aria-expanded="false"><div><span class="id">${esc(it.id)}</span><div class="title">${esc(it.check)}</div><div class="meta"><span>${esc(it.module)}</span><span class="pr ${esc(it.priority)}">${esc(it.priority)}</span><span class="sp"></span></div></div><div class="seg">${ST.map(s=>`<button data-st="${s}" class="${st.status===s?"on":""}" aria-label="${s}" title="${s}">${LBL[s]}</button>`).join("")}</div></div>
  <div class="body"><div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a defect ID or evidence link. You can also paste a screenshot here (Ctrl/Cmd+V).">${esc(st.notes)}</textarea><div class="shots">${thumbs(st.imgs||[])}</div><div class="shotbar"><span>Paste a screenshot with Ctrl/Cmd+V, or</span><label class="btn sec sm">Add image<input type="file" accept="image/*" multiple hidden></label></div></div></article>`}
 function render(){
  if(curPage==="lastweek"){renderLast();return}
+ if(curPage==="develop"){renderDevelop();return}
  const q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
  const list=items.filter(c=>(!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p)&&(!f.s||state(c.id).status===f.s));
  $("#shown").textContent=list.length+" of "+items.length+" shown";
@@ -54,8 +55,16 @@ function lNext(from){let n=from?from.nextElementSibling:document.querySelector("
  for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
  if(!n&&from){return from.parentElement.id==="lastList"?lNext(null):void 0}
  if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All last-week checks are done. Nice work!")}
+function setDevelopStatus(el,s){const id=el.dataset.id,was=el.classList.contains("open"),cur=state(id).status,next=cur===s?"Not tested":s;
+ put(id,{status:next});refreshCard(el);dstats();
+ if(next==="Failed"){open(el,true);const t=el.querySelector("textarea");t.focus({preventScroll:true})}
+ else if(next==="Passed"&&was){open(el,false);dNext(el)}}
+function dNext(from){let n=from?from.nextElementSibling:document.querySelector("#developList .card");
+ for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
+ if(!n&&from){return from.parentElement.id==="developList"?dNext(null):void 0}
+ if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All develop checks are done. Nice work!")}
 onLists("click",e=>{const el=e.target.closest(".card");if(!el)return;const b=e.target.closest("[data-st]");
- if(b){el.closest("#lastList")?setLastStatus(el,b.dataset.st):setStatus(el,b.dataset.st);return}
+ if(b){if(el.closest("#developList")){setDevelopStatus(el,b.dataset.st);return}if(el.closest("#lastList")){setLastStatus(el,b.dataset.st);return}setStatus(el,b.dataset.st);return}
  if(e.target.closest(".body"))return;open(el,!el.classList.contains("open"))});
 onLists("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("head")){e.preventDefault();const el=e.target.closest(".card");open(el,!el.classList.contains("open"))}});
 onLists("change",e=>{if(!e.target.matches(".step input"))return;const el=e.target.closest(".card"),id=el.dataset.id,i=+e.target.dataset.i;
@@ -183,6 +192,29 @@ const LAST=[
 ["LW-A8-36","Dashboard / settings / translations · Area 8","Staff list filter + staff page","1. Open filter popover + staff page","Render; filters functional.","Low"],
 ["LW-A8-37","Dashboard / settings / translations · Area 8","Discount capitalization EN/SV","1. Switch language; view discount text","Capitalized correctly in both languages.","Low"]
 ].map(a=>({id:a[0],module:a[1],check:a[2],steps:a[3],expected:a[4],priority:a[5]}));
+const DEVELOP=[
+["D-01","Develop · Customer search","Customer search — prefix matching & two-word split","1. Open customers page → type partial first/last name → prefix matches return ≤15 results 2. Type two words (\"First Last\") → first word treated as first name, second as last name","Prefix matches return up to 15 results; two-word input splits into first + last name.","High"],
+["D-02","Develop · Customer search","Customer search — caching & debounce","1. Search, then repeat same search → result served from browser cache (no re-fetch) for same user/company 2. Empty search → not cached; re-fetches on next non-empty query 3. Wait 0.5s after typing stops → search triggers","Repeat search served from cache; empty search not cached; 0.5s debounce applies.","High"],
+["D-03","Develop · Customer search","Booking search / add-booking — prefix query","1. Booking search / add-booking customer field → performs prefix query 2. Verify it no longer downloads every customer","No full customer download; prefix query used.","High"],
+["D-04","Develop · Customer search","Customer detail — fresh stats read","1. Open a single customer detail → reads only that customer for fresh stats","Reads only that customer, not all customers.","Medium"],
+["D-05","Develop · Customer search","Customer without userId — bookings by email","1. Customer without userId → booking history loaded by email, not by downloading all bookings","Booking history loaded by email.","Medium"],
+["D-06","Develop · Firebase read reduction","Week-view add-booking — company portal reads","1. Week-view add-booking → company portal loads owner/manager/staff company ids from user doc, then loads each company once","Loads each company once, not per booking.","High"],
+["D-07","Develop · Firebase read reduction","Customer sidebar / booking search — reduced reads","1. Customer sidebar / booking search → verify reduced Firebase reads in browser network/Firestore logs","Reduced Firebase reads observed.","High"],
+["D-08","Develop · Image compression","RestaurantMenuEditorPanel — compress before save","1. RestaurantMenuEditorPanel → upload an image → verify it's compressed before save","Image compressed before save.","Medium"],
+["D-09","Develop · Image compression","WebsiteEditorContext — compress & large file","1. WebsiteEditorContext → upload image in website editor → verify compression applied 2. Large file upload → confirm no failure and reasonable file size stored","Compression applied; large file uploads without failure.","Medium"],
+["D-10","Develop · Support contact","Support contact display & sync","1. Public website → support contact email/phone displays from company settings 2. Edit support contact in company settings → syncs to website preview/publish 3. Website support contact API routes return correct email/phone","Displays from settings; syncs to website; API routes correct.","Medium"],
+["D-11","Develop · Email verification","Email verification & password reset flow","1. Trigger email verification → verification email sent 2. Click verification link → app/auth/action/page handles confirm/reset, user confirmed 3. Password reset flow → reset email sent, link works, password updated 4. Translations for confirmation/reset present in EN and SV","Verification email sent; confirm/reset handled; password reset works; EN/SV translations present.","High"],
+["D-12","Develop · Discount campaign","Discount campaign booking window","1. Create discount campaign → set booking availability fields (start/end, days) 2. Booking window validation works (invalid dates blocked, toast shown) 3. Campaign applies discount within booking window, outside window no discount 4. Translation JSON is valid (no broken closures across languages)","Validation blocks invalid dates + toast; discount applies in-window only; translation JSON valid.","Medium"],
+["D-13","Develop · Staff metrics","Custom date picker — period selection","1. Staff metrics page → open custom date picker → select period 2. Period chips + metrics filter wired → chart/table updates for selected range 3. Staff metrics period selection persists correctly","Chart/table updates for selected range; period persists.","Medium"],
+["D-14","Develop · Staff hours (carry-over)","Staff hours follow company schedule","1. New assistant: follow company schedule = on → hours match company 2. Custom staff hours → saved independently, days ordered Mon–Sun 3. Toggle follow-company ↔ custom on edit; Firebase payload flag correct","Follow-company hours match company; custom hours saved independently; flag correct on toggle.","High"],
+["D-15","Develop · SMS phone suppression (carry-over)","SMS phone suppression","1. Customer detail modal → toggle suppression on/off → saved 2. Suppressed phone doc created/deleted in Firestore 3. Bulk select on customers page → bulk suppress/unsuppress dialog 4. PATCH /api/customers/[customerId] suppression payload 5. scripts/delete-suppressed-phone.mjs removes doc 6. Guest customer suppression synchronized (no bypass)","Toggle persists + doc lifecycle correct; bulk suppress works; API/script/guest suppression correct.","High"],
+["D-16","Develop · Customer SMS business preferences (carry-over)","Customer SMS business preferences","1. Customer detail modal SMS toggles → saved per customer 2. Bulk SMS business dialog → applies to selected customers 3. Settings page SMS business preferences saved","Toggles saved per customer; bulk dialog applies; global setting saved.","Medium"],
+["D-17","Develop · Staff management & multi-staff (carry-over)","Staff management & multi-staff service blocks","1. Staff member with user_uid → stored and used for lookups 2. Booking with multiple staff → validation passes, all staff displayed 3. Invalid staff selection → validation message 4. Staff dashboard performance metrics load","user_uid stored; multi-staff booking works; invalid staff blocked; metrics load.","Medium"],
+["D-18","Develop · SAR (carry-over)","SAR (personal data)","1. Staff personal number field → stored/displayed 2. SAR page / view employees / view settings render 3. Dashboard layout + sidebar SAR items appear per entitlement 4. Attendance APIs enforce SAR access (with/without permission)","Personal number stored/displayed; SAR pages render; entitlement gating correct; SAR access enforced.","Medium"],
+["D-19","Develop · Attendance (carry-over)","Attendance","1. Check-in/check-out → attendance log with correct staff 2. Today / last-7-days / open-shifts / modify endpoints 3. Attendance logs Firestore index → queries perform 4. Dashboard analytics / staff metrics render 5. Booking date grouping correct in dashboard API","Logs created with correct staff; endpoints return correct data; indexes perform; analytics render; date grouping correct.","Medium"],
+["D-20","Develop · Onboarding AI toggle (carry-over, still present)","Onboarding AI toggle — regression","1. Onboarding AI suggest/feedback panels work (toggle not yet removed on develop) 2. Service blocks / add-new-service page renders with AI toggle state 3. No console errors where toggle is used","AI panels work; pages render with toggle; no console errors.","Low"],
+["D-21","Develop · Dashboard / settings / translations (carry-over)","Dashboard / settings / translations — regression","1. Dashboard home cards with CARD_META_TEXT styling 2. Settings page loads (SAR commented-out logic doesn't break it) 3. Staff list filter popover + staff page render 4. Discount capitalization fixed in EN and SV","Cards styled consistently; Settings loads; filters render; EN/SV capitalization correct.","Low"]
+].map(a=>({id:a[0],module:a[1],check:a[2],steps:a[3],expected:a[4],priority:a[5]}));
 function drawFeatList(){$("#featList").innerHTML=FEAT.map(card).join("");document.querySelectorAll("#featList .card").forEach(refreshCard);fillThumbs($("#featList"))}
 function fstats(){const c={};FEAT.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=FEAT.length,dn=T-(c["Not tested"]||0);
  $("#fpct").textContent=Math.round(dn/T*100)+"%";$("#fdone").textContent=dn+" of "+T+" checked";
@@ -200,6 +232,19 @@ function renderLast(){
  }
  $("#lastList").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
  document.querySelectorAll("#lastList .card").forEach(refreshCard);lstats();fillThumbs($("#lastList"))}
+function dstats(){const c={};DEVELOP.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=DEVELOP.length,dn=T-(c["Not tested"]||0);
+ $("#dpct").textContent=Math.round(dn/T*100)+"%";$("#ddone").textContent=dn+" of "+T+" tested";
+ [["dp","Passed"],["df","Failed"],["db","Blocked"],["dn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
+function renderDevelop(){
+ const q=$("#q").value.toLowerCase();
+ const list=DEVELOP.filter(c=>!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q));
+ const groups={};list.forEach(c=>{if(!groups[c.module])groups[c.module]=[];groups[c.module].push(c)});
+ let h="";
+ for(const [mod,cs] of Object.entries(groups)){
+   h+=`<div class="gh"><div><h2>${esc(mod)}</h2></div><span>${cs.length}</span></div>`+cs.map(card).join("");
+ }
+ $("#developList").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
+ document.querySelectorAll("#developList .card").forEach(refreshCard);dstats();fillThumbs($("#developList"))}
 $("#fNext").onclick=()=>{const n=document.querySelector('#featList .card[data-s="Not tested"]');if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else alert("All feature checks are done. Nice work!")};
 $("#exp2").onclick=()=>openExp();
 try{$("#fName").value=localStorage.getItem("aspio-qa-fname")||""}catch(e){}
@@ -262,6 +307,7 @@ const frows=()=>{const fn=SCOPES.find(s=>s[0]===scope)[2],lab=$("#expLabel").val
  const q=fIssues.map((b,i)=>({b,i})).filter(o=>!lab||o.b.labels.includes(lab)).map(({b,i})=>({id:"ISSUE-"+(i+1),module:"New feature issue",check:b.title,priority:b.sev,status:"Issue",steps:[],expected:"",nlabel:"DETAILS",notes:[b.details,b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"New feature issues",imgs:b.imgs||[],labels:b.labels||[]}));
  return [...c,...q]};
 const lrows=()=>LAST.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
+const drows=()=>DEVELOP.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
 function fillExpLabels(){const u=[...new Set(fIssues.flatMap(b=>b.labels))].sort(),el=$("#expLabel");el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("")}
 $("#useFeat").onchange=()=>drawScope();$("#expLabel").onchange=()=>refreshExp();
 /* tabs */
@@ -269,17 +315,22 @@ function showPage(p){curPage=p;
  $("#pgCheck").hidden=p!=="check";
  $("#pgFeat").hidden=p!=="features";
  $("#pgLast").hidden=p!=="lastweek";
+ $("#pgDevelop").hidden=p!=="develop";
  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===p)));
- $("#heroP").innerHTML=p==="features"?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week’s changes — run the tracked test cards for changes landing on main.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
+ $("#heroP").innerHTML=p==="features"?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week’s changes — run the tracked test cards for changes landing on main.":p==="develop"?"Develop branch — run the tracked test cards for origin/develop.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
  window.scrollTo({top:0});
- if(p==="check")render();else if(p==="features")drawFeatList();else renderLast()}
+ if(p==="check")render();else if(p==="features")drawFeatList();else if(p==="lastweek")renderLast();else renderDevelop()}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;try{location.hash=t==="features"?"features":"check"}catch(e){}showPage(t)});
 $("#gotoLast").onclick=()=>{try{location.hash="#lastweek"}catch(e){}showPage("lastweek")};
+$("#gotoDevelop").onclick=()=>{try{location.hash="#develop"}catch(e){}showPage("develop")};
 $("#backToCheck").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
+$("#backToDevelop").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
 $("#lNext").onclick=()=>lNext(null);
+$("#dNext").onclick=()=>dNext(null);
 $("#exp3").onclick=()=>openExp();
-window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#lastweek"?"lastweek":"check")});
-drawFeatList();drawFeat();showPage(location.hash==="#features"?"features":location.hash==="#lastweek"?"lastweek":"check");
+$("#exp4").onclick=()=>openExp();
+window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#lastweek"?"lastweek":h==="#develop"?"develop":"check")});
+drawFeatList();drawFeat();showPage(location.hash==="#features"?"features":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":"check");
 /* ===== Export / print ===== */
 const SCOPES=[["all","All tests",()=>true],["Not tested","Not tested",s=>s==="Not tested"],["Passed","Passed",s=>s==="Passed"],["Failed","Failed",s=>s==="Failed"],["Blocked","Blocked",s=>s==="Blocked"],["attn","Failed + Blocked",s=>s==="Failed"||s==="Blocked"],["Not applicable","N/A",s=>s==="Not applicable"]];
 let scope="all",useF=false;
@@ -287,7 +338,7 @@ const scopeName=()=>SCOPES.find(s=>s[0]===scope)[1];
 function scoped(){const fn=SCOPES.find(s=>s[0]===scope)[2],q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
  return items.filter(c=>fn(state(c.id).status)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
 const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
-const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[])];
+const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[])];
 const meta=()=>({feature:$("#fName").value.trim(),tester:$("#tester").value.trim(),build:$("#build").value.trim(),decision:$("#decision").value,date:$("#date").value||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")});
 const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"");
 function summaryText(){const c={};items.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});
@@ -339,9 +390,9 @@ function printOut(list){
  const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done)};
  window.addEventListener("afterprint",done);
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,1500)},60)}
-function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
-function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
-function openExp(){scope=[...items,...FEAT,...LAST].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
+function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0)+(useDevelop?drows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
+function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST,...DEVELOP].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
+function openExp(){scope=[...items,...FEAT,...LAST,...DEVELOP].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
 const closeExp=()=>{$("#modal").hidden=true};
 async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent="";
  try{
@@ -354,7 +405,7 @@ $("#exp").onclick=openExp;$("#mx").onclick=closeExp;
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeExp()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeExp()});
 $("#scope").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b){scope=b.dataset.sc;drawScope()}});
-$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;
+$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;
 $("#goPdf").onclick=()=>runExp("pdf");$("#goCsv").onclick=()=>runExp("csv");$("#goPrint").onclick=()=>runExp("print");
 
 $("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render()}};
