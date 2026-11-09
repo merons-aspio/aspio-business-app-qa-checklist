@@ -7,15 +7,16 @@ const state=id=>saved[id]||{status:"Not tested",notes:"",done:[]};
 const put=(id,p)=>{saved[id]={...state(id),...p};store()};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=s=>document.querySelector(s);
-const onLists=(t,fn)=>[$("#list"),$("#featList")].forEach(L=>L.addEventListener(t,fn));
+const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList")].forEach(L=>L.addEventListener(t,fn));
 const GRP=["Release sign-off","A · Basic functionality","B · Business workflows"],GSUB=["Complete these 12 checks before approving","Core screens and features","End-to-end flows across modules"];
 const items=[...DATA.critical.map(c=>({id:c[0],module:c[1],check:c[2],steps:c[3],expected:c[4],priority:"Critical",grp:0})),...DATA.cases.map(c=>({...c,grp:c.id.startsWith("QF-A")?1:2}))];
 const stepsOf=s=>String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
-let f={s:""};
+let f={s:""},curPage="check",useLast=false;
 function card(it){const st=state(it.id),steps=stepsOf(it.steps);
  return `<article class="card" data-id="${esc(it.id)}" data-s="${st.status}"><div class="head" tabindex="0" role="button" aria-expanded="false"><div><span class="id">${esc(it.id)}</span><div class="title">${esc(it.check)}</div><div class="meta"><span>${esc(it.module)}</span><span class="pr ${esc(it.priority)}">${esc(it.priority)}</span><span class="sp"></span></div></div><div class="seg">${ST.map(s=>`<button data-st="${s}" class="${st.status===s?"on":""}" aria-label="${s}" title="${s}">${LBL[s]}</button>`).join("")}</div></div>
  <div class="body"><div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a defect ID or evidence link. You can also paste a screenshot here (Ctrl/Cmd+V).">${esc(st.notes)}</textarea><div class="shots">${thumbs(st.imgs||[])}</div><div class="shotbar"><span>Paste a screenshot with Ctrl/Cmd+V, or</span><label class="btn sec sm">Add image<input type="file" accept="image/*" multiple hidden></label></div></div></article>`}
 function render(){
+ if(curPage==="lastweek"){renderLast();return}
  const q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
  const list=items.filter(c=>(!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p)&&(!f.s||state(c.id).status===f.s));
  $("#shown").textContent=list.length+" of "+items.length+" shown";
@@ -45,8 +46,16 @@ function goNext(from){let n=from?from.nextElementSibling:document.querySelector(
  for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
  if(!n&&from){return from.parentElement.id==="list"?goNext(null):void 0}
  if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("Nothing left to test in this view. Nice work!")}
+function setLastStatus(el,s){const id=el.dataset.id,was=el.classList.contains("open"),cur=state(id).status,next=cur===s?"Not tested":s;
+ put(id,{status:next});refreshCard(el);lstats();
+ if(next==="Failed"){open(el,true);const t=el.querySelector("textarea");t.focus({preventScroll:true})}
+ else if(next==="Passed"&&was){open(el,false);lNext(el)}}
+function lNext(from){let n=from?from.nextElementSibling:document.querySelector("#lastList .card");
+ for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
+ if(!n&&from){return from.parentElement.id==="lastList"?lNext(null):void 0}
+ if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All last-week checks are done. Nice work!")}
 onLists("click",e=>{const el=e.target.closest(".card");if(!el)return;const b=e.target.closest("[data-st]");
- if(b){setStatus(el,b.dataset.st);return}
+ if(b){el.closest("#lastList")?setLastStatus(el,b.dataset.st):setStatus(el,b.dataset.st);return}
  if(e.target.closest(".body"))return;open(el,!el.classList.contains("open"))});
 onLists("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("head")){e.preventDefault();const el=e.target.closest(".card");open(el,!el.classList.contains("open"))}});
 onLists("change",e=>{if(!e.target.matches(".step input"))return;const el=e.target.closest(".card"),id=el.dataset.id,i=+e.target.dataset.i;
@@ -135,10 +144,62 @@ const FEAT=[
 ["NF-09","Errors","Failures are handled gracefully","1. Go offline or interrupt a save. 2. Retry.","A clear error is shown and no data is lost or duplicated.","Medium"],
 ["NF-10","Related features","Existing related features still work","1. Run the related tests from the main checklist.","No existing behavior changed unexpectedly.","High"]
 ].map(a=>({id:a[0],module:"New feature · "+a[1],check:a[2],steps:a[3],expected:a[4],priority:a[5],grp:0}));
+const LAST=[
+["LW-A1-01","Staff hours · Area 1","Create assistant — follow company schedule = ON","1. Sign in as company owner 2. Navigate to Add New Assistant page 3. Enable \"Staff hours follow company schedule\" toggle 4. Leave custom-hours fields blank (or at defaults) 5. Click Save / Create 6. Open Firestore → assistants collection → new doc 7. Verify assistant hours match company schedule exactly","All steps succeed; Firebase flag staffHoursFollowCompany is true; stored hours equal company schedule.","High"],
+["LW-A1-02","Staff hours · Area 1","Create assistant — follow company schedule = OFF (custom hours)","1. Sign in as company owner 2. Navigate to Add New Assistant 3. Disable \"Staff hours follow company schedule\" 4. Enter custom staff hours (e.g., Mon 10:00–18:00, Tue–Thu 11:00–19:00, Fri–Sun closed) 5. Click Save / Create 6. Open Firestore → new assistant doc 7. Verify stored custom hours match exactly what was entered","Custom hours saved independently; flag is false; stored hours ≠ company schedule.","High"],
+["LW-A1-03","Staff hours · Area 1","Day ordering in custom staff schedule (Mon–Sun)","1. On Add New Assistant, disable follow-company 2. Observe the vertical order of day rows 3. (Optional) Save and re-open edit","Days appear strictly Monday→Sunday; no swapped or missing days.","Medium"],
+["LW-A1-04","Staff hours · Area 1","Edit assistant — toggle follow-company ↔ custom","1. Open an existing assistant for edit 2. If follow-company: disable it, enter custom hours, save 3. Re-open edit; enable follow-company; save 4. Re-open edit one more time","Flag flips correctly each toggle; hours update to selected mode; no stale custom hours when follow-company is on.","High"],
+["LW-A1-05","Staff hours · Area 1","Firebase payload verification (server-side shape)","1. Create an assistant via UI with custom hours 2. Inspect the Firestore document in console 3. Verify no extra or missing fields","Document shape matches build-assistant-firebase-payload.ts; correct field names and types; no phantom fields.","High"],
+["LW-A1-EC1","Staff hours · Area 1","Edge: follow-company ON with empty company schedule","1. Save assistant with follow-company ON but company schedule empty/not configured","Validation warning or graceful fallback; no crash.","Medium"],
+["LW-A1-EC2","Staff hours · Area 1","Edge: rapid toggle follow-company 5× then save","1. Rapidly toggle follow-company on/off 5 times 2. Save","Last state wins; no duplicate submissions.","Medium"],
+["LW-A1-EC3","Staff hours · Area 1","Edge: navigate away without saving","1. Navigate away from Add New Assistant without saving","Unsaved changes warning (if implemented) or silent discard; no partial record created.","Medium"],
+["LW-A2-06","SMS phone suppression · Area 2","Toggle suppression on single customer","1. Open customer detail modal 2. Toggle SMS suppression ON → save → re-open → OFF → save","Toggle persists; sms_phone_suppression flips on customer doc.","High"],
+["LW-A2-07","SMS phone suppression · Area 2","Suppressed-phone document lifecycle","1. Suppression ON → check Firestore for suppressed-phone doc 2. Suppression OFF → check Firestore","Doc exists while ON; removed when OFF.","High"],
+["LW-A2-08","SMS phone suppression · Area 2","Bulk suppress/unsuppress","1. Customers page → multi-select → bulk SMS dialog → apply","All selected updated; no console errors.","High"],
+["LW-A2-09","SMS phone suppression · Area 2","API suppression payload","1. PATCH /api/customers/[id] with suppression body 2. GET customer","200; field updated.","High"],
+["LW-A2-10","SMS phone suppression · Area 2","Delete suppressed phone script","1. Run scripts/delete-suppressed-phone.mjs against test phone","Doc removed; script exits cleanly.","Medium"],
+["LW-A2-11","SMS phone suppression · Area 2","Guest customer suppression","1. Guest customer (no userId) → apply suppression → verify","Stored and respected; no bypass.","Medium"],
+["LW-A3-12","Customer SMS business preferences · Area 3","SMS business toggles per customer","1. Customer detail modal → toggle opt-in/out → save → re-open","Saved per customer; reflected on record.","Medium"],
+["LW-A3-13","Customer SMS business preferences · Area 3","Bulk SMS business dialog","1. Customers page → multi-select → bulk dialog → apply → verify each","All selected updated consistently.","Medium"],
+["LW-A3-14","Customer SMS business preferences · Area 3","Settings page SMS preferences","1. Settings → SMS business preferences → save → check default inheritance","Global setting saved; new/no-override customers inherit.","Medium"],
+["LW-A4-15","Staff management & multi-staff service blocks · Area 4","Staff user_uid","1. Create/edit staff with user_uid → save → query API/Firestore","Stored; lookups by user_uid work.","Medium"],
+["LW-A4-16","Staff management & multi-staff service blocks · Area 4","Multi-staff booking","1. Create service allowing multiple staff → booking → assign 2+ staff → save","Accepts multiple staff; all visible on booking.","Medium"],
+["LW-A4-17","Staff management & multi-staff service blocks · Area 4","Invalid staff validation","1. Assign non-existent/inactive staff → save","Validation message; save blocked.","Medium"],
+["LW-A4-18","Staff management & multi-staff service blocks · Area 4","Staff dashboard metrics","1. Open Staff Dashboard → metrics load","Render without errors; data present.","Medium"],
+["LW-A5-22","SAR · Area 5","Staff personal number","1. Staff management → add personal number → save → view","Stored and displayed where SAR access allows.","Medium"],
+["LW-A5-23","SAR · Area 5","SAR page renders","1. Navigate to SAR page","Loads without errors; staff data shown.","Medium"],
+["LW-A5-24","SAR · Area 5","SAR view employees/settings","1. Open both sub-pages","Render without errors; consistent with staff records.","Medium"],
+["LW-A5-25","SAR · Area 5","SAR nav gating","1. Sign in with SAR entitlement → items visible 2. Without → hidden","Correctly gated by entitlement.","Medium"],
+["LW-A5-26","SAR · Area 5","Attendance SAR access","1. Call attendance API with/without SAR permission","200 with permission; 403 without.","Medium"],
+["LW-A6-27","Attendance · Area 6","Check-in/check-out log","1. Staff checks in/out → inspect attendance-logs","Log created with correct staff ID + timestamps.","Medium"],
+["LW-A6-28","Attendance · Area 6","Attendance query endpoints","1. Call today, last-7-days, open-shifts, modify","Correct filtered data; no 500s.","Medium"],
+["LW-A6-29","Attendance · Area 6","Attendance logs Firestore index","1. Run filtered+ordered query","Executes without \"index missing\" warning.","Medium"],
+["LW-A6-30","Attendance · Area 6","Dashboard analytics/staff metrics","1. Open dashboard analytics panels","Populate with data; charts/tables render.","Medium"],
+["LW-A6-31","Attendance · Area 6","Booking date grouping","1. Create bookings on different dates → dashboard API","Grouped by correct date; no timezone shift.","Medium"],
+["LW-A7-32","Onboarding AI toggle removal · Area 7","AI panels no longer reference removed toggle","1. Open onboarding AI suggest/feedback panels","Render; no references to removed toggle; no console errors.","Low"],
+["LW-A7-33","Onboarding AI toggle removal · Area 7","Service blocks / add-new-service without toggle","1. Open both pages","Render correctly; no broken UI where toggle was.","Low"],
+["LW-A8-34","Dashboard / settings / translations · Area 8","Dashboard cards CARD_META_TEXT","1. Open dashboard home; inspect card metadata","Consistent styling; no broken layout.","Low"],
+["LW-A8-35","Dashboard / settings / translations · Area 8","Settings page loads","1. Open Settings (SAR logic commented out)","Loads; no crashes.","Low"],
+["LW-A8-36","Dashboard / settings / translations · Area 8","Staff list filter + staff page","1. Open filter popover + staff page","Render; filters functional.","Low"],
+["LW-A8-37","Dashboard / settings / translations · Area 8","Discount capitalization EN/SV","1. Switch language; view discount text","Capitalized correctly in both languages.","Low"]
+].map(a=>({id:a[0],module:a[1],check:a[2],steps:a[3],expected:a[4],priority:a[5]}));
 function drawFeatList(){$("#featList").innerHTML=FEAT.map(card).join("");document.querySelectorAll("#featList .card").forEach(refreshCard);fillThumbs($("#featList"))}
 function fstats(){const c={};FEAT.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=FEAT.length,dn=T-(c["Not tested"]||0);
  $("#fpct").textContent=Math.round(dn/T*100)+"%";$("#fdone").textContent=dn+" of "+T+" checked";
  [["fp","Passed"],["ff","Failed"],["fb","Blocked"],["fn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
+function lstats(){const c={};LAST.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=LAST.length,dn=T-(c["Not tested"]||0);
+ $("#lpct").textContent=Math.round(dn/T*100)+"%";$("#ldone").textContent=dn+" of "+T+" tested";
+ [["lp","Passed"],["lf","Failed"],["lb","Blocked"],["ln","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
+function renderLast(){
+ const q=$("#q").value.toLowerCase();
+ const list=LAST.filter(c=>!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q));
+ const groups={};list.forEach(c=>{if(!groups[c.module])groups[c.module]=[];groups[c.module].push(c)});
+ let h="";
+ for(const [mod,cs] of Object.entries(groups)){
+   h+=`<div class="gh"><div><h2>${esc(mod)}</h2></div><span>${cs.length}</span></div>`+cs.map(card).join("");
+ }
+ $("#lastList").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
+ document.querySelectorAll("#lastList .card").forEach(refreshCard);lstats();fillThumbs($("#lastList"))}
 $("#fNext").onclick=()=>{const n=document.querySelector('#featList .card[data-s="Not tested"]');if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else alert("All feature checks are done. Nice work!")};
 $("#exp2").onclick=()=>openExp();
 try{$("#fName").value=localStorage.getItem("aspio-qa-fname")||""}catch(e){}
@@ -200,16 +261,25 @@ const frows=()=>{const fn=SCOPES.find(s=>s[0]===scope)[2],lab=$("#expLabel").val
  const c=FEAT.filter(i=>fn(state(i.id).status)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"New feature checklist",imgs:state(i.id).imgs||[],labels:[]}));
  const q=fIssues.map((b,i)=>({b,i})).filter(o=>!lab||o.b.labels.includes(lab)).map(({b,i})=>({id:"ISSUE-"+(i+1),module:"New feature issue",check:b.title,priority:b.sev,status:"Issue",steps:[],expected:"",nlabel:"DETAILS",notes:[b.details,b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"New feature issues",imgs:b.imgs||[],labels:b.labels||[]}));
  return [...c,...q]};
+const lrows=()=>LAST.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
 function fillExpLabels(){const u=[...new Set(fIssues.flatMap(b=>b.labels))].sort(),el=$("#expLabel");el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("")}
 $("#useFeat").onchange=()=>drawScope();$("#expLabel").onchange=()=>refreshExp();
 /* tabs */
-function showTab(t){const f=t==="features";$("#pgCheck").hidden=f;$("#pgFeat").hidden=!f;
- document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String((b.dataset.tab==="features")===f)));
- $("#heroP").innerHTML=f?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
- window.scrollTo({top:0})}
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;try{location.hash=t==="features"?"features":"checklist"}catch(e){}showTab(t)});
-window.addEventListener("hashchange",()=>showTab(location.hash==="#features"?"features":"check"));
-drawFeatList();drawFeat();showTab(location.hash==="#features"?"features":"check");
+function showPage(p){curPage=p;
+ $("#pgCheck").hidden=p!=="check";
+ $("#pgFeat").hidden=p!=="features";
+ $("#pgLast").hidden=p!=="lastweek";
+ document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===p)));
+ $("#heroP").innerHTML=p==="features"?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week’s changes — run the tracked test cards for changes landing on main.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
+ window.scrollTo({top:0});
+ if(p==="check")render();else if(p==="features")drawFeatList();else renderLast()}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;try{location.hash=t==="features"?"features":"check"}catch(e){}showPage(t)});
+$("#gotoLast").onclick=()=>{try{location.hash="#lastweek"}catch(e){}showPage("lastweek")};
+$("#backToCheck").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
+$("#lNext").onclick=()=>lNext(null);
+$("#exp3").onclick=()=>openExp();
+window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#lastweek"?"lastweek":"check")});
+drawFeatList();drawFeat();showPage(location.hash==="#features"?"features":location.hash==="#lastweek"?"lastweek":"check");
 /* ===== Export / print ===== */
 const SCOPES=[["all","All tests",()=>true],["Not tested","Not tested",s=>s==="Not tested"],["Passed","Passed",s=>s==="Passed"],["Failed","Failed",s=>s==="Failed"],["Blocked","Blocked",s=>s==="Blocked"],["attn","Failed + Blocked",s=>s==="Failed"||s==="Blocked"],["Not applicable","N/A",s=>s==="Not applicable"]];
 let scope="all",useF=false;
@@ -217,7 +287,7 @@ const scopeName=()=>SCOPES.find(s=>s[0]===scope)[1];
 function scoped(){const fn=SCOPES.find(s=>s[0]===scope)[2],q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
  return items.filter(c=>fn(state(c.id).status)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
 const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
-const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[])];
+const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[])];
 const meta=()=>({feature:$("#fName").value.trim(),tester:$("#tester").value.trim(),build:$("#build").value.trim(),decision:$("#decision").value,date:$("#date").value||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")});
 const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"");
 function summaryText(){const c={};items.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});
@@ -269,9 +339,9 @@ function printOut(list){
  const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done)};
  window.addEventListener("afterprint",done);
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,1500)},60)}
-function refreshExp(){useF=$("#useF").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
-function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[])].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
-function openExp(){scope=[...items,...FEAT].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
+function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
+function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
+function openExp(){scope=[...items,...FEAT,...LAST].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
 const closeExp=()=>{$("#modal").hidden=true};
 async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent="";
  try{
@@ -284,7 +354,7 @@ $("#exp").onclick=openExp;$("#mx").onclick=closeExp;
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeExp()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeExp()});
 $("#scope").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b){scope=b.dataset.sc;drawScope()}});
-$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;
+$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;
 $("#goPdf").onclick=()=>runExp("pdf");$("#goCsv").onclick=()=>runExp("csv");$("#goPrint").onclick=()=>runExp("print");
 
 $("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render()}};

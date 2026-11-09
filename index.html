@@ -15,6 +15,7 @@
   <h1>Aspio Business App</h1>
   <p id="heroP">Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.</p>
   <nav class="tabs" aria-label="Pages"><button type="button" data-tab="check" aria-selected="true">Main checklist</button><button type="button" data-tab="features" aria-selected="false">New features</button></nav>
+  <button type="button" id="gotoLast" class="btn">Last week's changes</button>
 </div></header>
 
 <div id="pgCheck">
@@ -107,6 +108,24 @@
   <p class="foot">New features page · Checklist results and logged items are saved in this browser and included in exports.</p>
 </main>
 </div>
+
+<div id="pgLast" hidden>
+<div class="bar"><div class="bar-in">
+  <div class="bar-top"><b id="lpct">0%</b><span id="ldone"></span></div>
+  <div class="track" aria-hidden="true"><i id="lp" style="background:var(--pass)"></i><i id="lf" style="background:var(--fail)"></i><i id="lb" style="background:var(--blk)"></i><i id="ln" style="background:var(--na)"></i></div>
+</div></div>
+<main class="wrap">
+  <button class="btn" id="backToCheck">← Back to main checklist</button>
+  <section class="panel">
+    <div class="lbl" style="margin-top:0">Last week's changes — test plan</div>
+    <p>Tracked tests for the changes landing on main this week. Tap <b>Pass</b> or <b>Fail</b> on each card; results are saved in this browser and included in exports.</p>
+    <div class="row2"><button class="btn" id="lNext">Next untested →</button><button class="btn sec" id="exp3" type="button">Export / Print…</button></div>
+  </section>
+  <div id="lastList"></div>
+  <p class="foot">Last week's changes page · Results are saved locally in this browser and included in exports.</p>
+</main>
+</div>
+
 <div class="modal" id="modal" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mt">
   <div class="sh-h"><h2 id="mt">Export or print a report</h2><button class="x" id="mx" type="button" aria-label="Close">✕</button></div>
   <div class="lbl">1 · Which tests?</div>
@@ -114,6 +133,7 @@
   <label class="chk"><input type="checkbox" id="useF"> Also apply my current search, module and priority filters</label>
   <label class="chk"><input type="checkbox" id="useX" checked> Include the other bugs I logged (<span id="xN">0</span>)</label>
   <label class="chk"><input type="checkbox" id="useFeat" checked> Include the New features page (<span id="fN">0</span> checks, <span id="fiN">0</span> logged items)</label>
+  <label class="chk"><input type="checkbox" id="useLast"> Include Last week's changes page (<span id="lN">0</span> cards)</label>
   <div class="chk">Only logged items with label: <select id="expLabel" class="field" style="width:auto;padding:4px 8px" aria-label="Label filter"><option value="">Any label</option></select></div>
   <div class="count" id="expCount"></div>
   <div class="lbl">2 · Format</div>
