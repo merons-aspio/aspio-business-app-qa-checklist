@@ -18,6 +18,7 @@
   <nav class="tabs" aria-label="Pages"><button type="button" data-tab="check" aria-selected="true">Main checklist</button><button type="button" data-tab="features" aria-selected="false">New features</button><button type="button" data-tab="staging" aria-selected="false">Staging release</button></nav>
   <button type="button" id="gotoLast" class="btn">Last week's changes</button>
   <button type="button" id="gotoDevelop" class="btn">Develop last week's changes</button>
+  <button type="button" id="addFinding" class="btn add-finding">＋ Add finding / bug</button>
 </div></header>
 
 <div id="pgCheck">
@@ -45,21 +46,7 @@
 
   <div id="list"></div>
 
-  <div class="gh"><h2>Other bugs found</h2><span id="xCount"></span></div>
-  <section class="panel" id="xPanel">
-    <p class="xhint">Found something the checklist doesn’t cover? Log it here. It’s saved temporarily in this browser and added to your PDF, CSV or print report.</p>
-    <div class="xgrid">
-      <input class="field" id="xTitle" placeholder="Bug title (required)" aria-label="Bug title">
-      <select class="field" id="xSev" aria-label="Severity"><option>Critical</option><option selected>High</option><option>Medium</option><option>Low</option></select>
-      <input class="field" id="xArea" list="xAreas" placeholder="Module / area" aria-label="Module or area"><datalist id="xAreas"></datalist>
-    </div>
-    <textarea id="xSteps" placeholder="Steps to reproduce (one per line)" aria-label="Steps to reproduce"></textarea>
-    <div class="xgrid2"><textarea id="xExp" placeholder="Expected result" aria-label="Expected result"></textarea><textarea id="xAct" placeholder="Actual result" aria-label="Actual result"></textarea></div>
-    <div class="shots" id="xShots"></div><div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">Add image<input type="file" id="xFile" accept="image/*" multiple hidden></label></div>
-    <input class="field" style="margin-top:8px" id="xLink" placeholder="Evidence link or ticket ID (optional)" aria-label="Evidence or ticket">
-    <div class="row2"><button class="btn" id="xAdd" type="button">Add bug</button><button class="btn out" id="xCancel" type="button" hidden>Cancel edit</button><button class="btn out" id="xClear" type="button" hidden>Clear all</button></div>
-    <div id="xList"></div>
-  </section>
+  <div id="findings-check" class="findings-block"></div>
 
   <div class="gh"><h2>PM sign-off</h2></div>
   <section class="panel">
@@ -121,6 +108,8 @@
 
   <div id="stagingList"></div>
 
+  <div id="findings-staging" class="findings-block"></div>
+
   <details class="note" style="margin-top:20px"><summary>Release sign-off checklist</summary><ul id="sSignoff" class="stg-list"></ul></details>
   <details class="note"><summary>Known staging limitations and placeholders</summary><ul id="sLimits" class="stg-list"></ul></details>
   <p class="foot">Staging release page · Results are saved locally in this browser and included in exports.</p>
@@ -141,22 +130,7 @@
   <div class="gh"><h2>Quick feature checklist</h2><span>The basics for any new feature</span></div>
   <div id="featList"></div>
 
-  <div class="gh"><h2>Issues &amp; notes log</h2><span id="fiCount"></span></div>
-  <section class="panel" id="fiPanel">
-    <p class="xhint">Log anything you notice: a bug, a content issue, something missing, an idea. Labels you create here become one-tap options on every new entry.</p>
-    <input class="field" id="fiTitle" placeholder="What did you find? (required)" aria-label="Title">
-    <textarea id="fiDetails" style="margin-top:8px" placeholder="Details: steps, what you expected, what happened. You can paste a screenshot here (Ctrl/Cmd+V)." aria-label="Details"></textarea>
-    <div class="lbl">Labels</div>
-    <div class="lib" id="fiLib"></div>
-    <div class="row2" style="margin-top:8px"><input class="field" id="fiNewLab" style="max-width:280px" placeholder="New label, then press Enter" aria-label="New label"><button class="btn sec" type="button" id="fiAddLab">Add label</button><button class="btn out" type="button" id="fiManage">Manage labels</button></div>
-    <div class="xgrid" style="grid-template-columns:140px 1fr;margin-top:10px"><select id="fiSev" class="field" aria-label="Severity"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select><input class="field" id="fiLink" placeholder="Evidence link or ticket ID (optional)" aria-label="Evidence or ticket"></div>
-    <div class="shots" id="fiShots"></div><div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">Add image<input type="file" id="fiFile" accept="image/*" multiple hidden></label></div>
-    <div class="row2"><button class="btn" id="fiAdd" type="button">Add to log</button><button class="btn out" id="fiCancel" type="button" hidden>Cancel edit</button></div>
-  </section>
-
-  <div class="gh"><h2>Logged items</h2><span>Tap a label to filter</span></div>
-  <div class="chips wrap" id="fiFilter"></div>
-  <div id="fiList"></div>
+  <div id="findings-features" class="findings-block"></div>
   <p class="foot">New features page · Checklist results and logged items are saved in this browser and included in exports.</p>
 </main>
 </div>
@@ -174,6 +148,7 @@
     <div class="row2"><button class="btn" id="lNext">Next untested →</button><button class="btn sec" id="exp3" type="button">Export / Print…</button></div>
   </section>
   <div id="lastList"></div>
+  <div id="findings-lastweek" class="findings-block"></div>
   <p class="foot">Last week's changes page · Results are saved locally in this browser and included in exports.</p>
 </main>
 </div>
@@ -192,26 +167,59 @@
     <p class="mut" style="margin-top:8px">Note: develop still has the onboarding-AI toggle (not yet removed) and lacks main's staging merges. Main-only fixes must be cherry-picked into develop separately.</p>
   </section>
   <div id="developList"></div>
+  <div id="findings-develop" class="findings-block"></div>
   <p class="foot">Develop branch page · Results are saved locally in this browser and included in exports.</p>
 </main>
 </div>
 
 <div class="modal" id="modal" hidden><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mt">
   <div class="sh-h"><h2 id="mt">Export or print a report</h2><button class="x" id="mx" type="button" aria-label="Close">✕</button></div>
-  <div class="lbl">1 · Which tests?</div>
+  <div class="lbl">1 · Pages to include</div>
+  <div class="chk-grid">
+    <label class="chk"><input type="checkbox" id="useMain" checked> Main checklist (<span id="mN">0</span> cases)</label>
+    <label class="chk"><input type="checkbox" id="useFeat" checked> New features (<span id="fN">0</span> checks)</label>
+    <label class="chk"><input type="checkbox" id="useLast"> Last week's changes (<span id="lN">0</span> cards)</label>
+    <label class="chk"><input type="checkbox" id="useDevelop"> Develop branch (<span id="dN">0</span> cards)</label>
+    <label class="chk"><input type="checkbox" id="useStaging"> Staging release (<span id="sN">0</span> cases)</label>
+    <label class="chk"><input type="checkbox" id="useFindings" checked> Logged findings &amp; bugs (<span id="findN">0</span>)</label>
+  </div>
+  <div class="row2"><button class="btn sec sm" id="allPages" type="button">All pages</button><button class="btn out sm" id="noPages" type="button">Clear pages</button></div>
+
+  <div class="lbl">2 · Statuses to include</div>
   <div class="scope" id="scope"></div>
-  <label class="chk"><input type="checkbox" id="useF"> <span id="useFtxt">Also apply my current search, module and priority filters</span></label>
-  <label class="chk"><input type="checkbox" id="useX" checked> Include the other bugs I logged (<span id="xN">0</span>)</label>
-  <label class="chk"><input type="checkbox" id="useFeat" checked> Include the New features page (<span id="fN">0</span> checks, <span id="fiN">0</span> logged items)</label>
-  <label class="chk"><input type="checkbox" id="useLast"> Include Last week's changes page (<span id="lN">0</span> cards)</label>
-  <label class="chk"><input type="checkbox" id="useDevelop"> Include Develop branch page (<span id="dN">0</span> cards)</label>
-  <label class="chk"><input type="checkbox" id="useStaging"> Include the Staging release page (<span id="sN">0</span> cases)</label>
+  <div class="row2" id="statusPresets">
+    <button class="btn sec sm" type="button" data-preset="all">All</button>
+    <button class="btn out sm" type="button" data-preset="none">None</button>
+    <button class="btn out sm" type="button" data-preset="failed">Failed only</button>
+    <button class="btn out sm" type="button" data-preset="attn">Failed + Blocked</button>
+    <button class="btn out sm" type="button" data-preset="passed">Passed only</button>
+  </div>
   <label class="chk"><input type="checkbox" id="onlyTouched" checked> Only include cases I've worked on (status, step, note or screenshot)</label>
-  <div class="chk">Only logged items with label: <select id="expLabel" class="field" style="width:auto;padding:4px 8px" aria-label="Label filter"><option value="">Any label</option></select></div>
+  <label class="chk"><input type="checkbox" id="useF"> <span id="useFtxt">Apply current page's search, module and priority filters</span></label>
+  <div class="chk">Only findings with label: <select id="expLabel" class="field" style="width:auto;padding:4px 8px" aria-label="Label filter"><option value="">Any label</option></select></div>
   <div class="count" id="expCount"></div>
-  <div class="lbl">2 · Format</div>
+  <div class="lbl">3 · Format</div>
   <div class="fmt"><button class="btn" id="goPdf" type="button">Download PDF</button><button class="btn sec" id="goCsv" type="button">Download CSV</button><button class="btn out" id="goPrint" type="button">Print</button></div>
   <p class="hint" id="expMsg" role="status"></p>
+</div></div>
+
+<div class="modal" id="fndModal" hidden><div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="fndModalTitle">
+  <div class="sh-h"><h2 id="fndModalTitle">Add finding or bug</h2><button class="x" id="fndClose" type="button" aria-label="Close">✕</button></div>
+  <div class="xgrid">
+    <select class="field" id="fndPage" aria-label="Page"><option value="check">Main checklist</option><option value="features">New features</option><option value="lastweek">Last week's changes</option><option value="develop">Develop branch</option><option value="staging">Staging release</option></select>
+    <select class="field" id="fndSev" aria-label="Severity"><option>Critical</option><option selected>High</option><option>Medium</option><option>Low</option></select>
+    <input class="field" id="fndArea" list="fndAreas" placeholder="Module / area" aria-label="Module or area"><datalist id="fndAreas"></datalist>
+  </div>
+  <input class="field" id="fndTitle" placeholder="Finding or bug title (required)" aria-label="Finding title">
+  <textarea id="fndSteps" placeholder="Steps to reproduce (one per line)" aria-label="Steps to reproduce"></textarea>
+  <div class="xgrid2"><textarea id="fndExp" placeholder="Expected result" aria-label="Expected result"></textarea><textarea id="fndAct" placeholder="Actual result" aria-label="Actual result"></textarea></div>
+  <div class="lbl">Labels</div>
+  <div class="lib" id="fndLib"></div>
+  <div class="row2"><input class="field" id="fndNewLab" style="max-width:280px" placeholder="New label, then press Enter" aria-label="New label"><button class="btn sec" type="button" id="fndAddLab">Add label</button><button class="btn out" type="button" id="fndManage">Manage labels</button></div>
+  <div class="shots" id="fndShots"></div>
+  <div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">Add image<input type="file" id="fndFile" accept="image/*" multiple hidden></label></div>
+  <input class="field" style="margin-top:8px" id="fndLink" placeholder="Evidence link or ticket ID (optional)" aria-label="Evidence or ticket">
+  <div class="row2"><button class="btn" id="fndSave" type="button">Save finding</button><button class="btn out" id="fndCancel" type="button">Cancel</button></div>
 </div></div>
 <div class="lb" id="lb" hidden><img id="lbimg" alt="Screenshot enlarged"></div>
 <div id="printArea"></div>

@@ -14,7 +14,7 @@ const STAGING=(window.STAGING_DATA&&window.STAGING_DATA.cases)||[];
 const STAGING_META=(window.STAGING_DATA&&window.STAGING_DATA.meta)||{};
 const SGROUPS=["Critical","Medium","Core smoke","Cross-cutting"];
 const stepsOf=s=>Array.isArray(s)?s.map(x=>String(x).trim()).filter(Boolean):String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
-let f={s:""},curPage="check",useLast=false,useDevelop=false;
+let f={s:""},curPage="check";
 function card(it){const st=state(it.id),steps=stepsOf(it.steps);
  return `<article class="card" data-id="${esc(it.id)}" data-s="${st.status}"><div class="head" tabindex="0" role="button" aria-expanded="false"><div><span class="id">${esc(it.id)}</span><div class="title">${esc(it.check)}</div><div class="meta"><span>${esc(it.module)}</span><span class="pr ${esc(it.priority)}">${esc(it.priority)}</span><span class="sp"></span></div></div><div class="seg">${ST.map(s=>`<button data-st="${s}" class="${st.status===s?"on":""}" aria-label="${s}" title="${s}">${LBL[s]}</button>`).join("")}</div></div>
  <div class="body">${it.pre?`<div class="lbl">Preconditions</div><div class="exp">${esc(it.pre)}</div>`:""}<div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a defect ID or evidence link. You can also paste a screenshot here (Ctrl/Cmd+V).">${esc(st.notes)}</textarea><div class="shots">${thumbs(st.imgs||[])}</div><div class="shotbar"><span>Paste a screenshot with Ctrl/Cmd+V, or</span><label class="btn sec sm">Add image<input type="file" accept="image/*" multiple hidden></label></div></div></article>`}
@@ -109,40 +109,9 @@ document.addEventListener("click",async e=>{
  const rm=e.target.closest&&e.target.closest("[data-rm]"),zoom=e.target.closest&&e.target.closest("img[data-lb]");
  if(rm){const id=rm.dataset.rm,el=rm.closest(".card");
   if(el){put(el.dataset.id,{imgs:(state(el.dataset.id).imgs||[]).filter(x=>x!==id)});rm.closest(".shot").remove();refreshCard(el)}
-  else if(rm.closest("#xShots")){xImgs=xImgs.filter(x=>x!==id);rm.closest(".shot").remove()}
-  else if(rm.closest("#fiShots")){fiImgs=fiImgs.filter(x=>x!==id);rm.closest(".shot").remove()}
+  else if(rm.closest("#fndShots")){fndImgs=fndImgs.filter(x=>x!==id);rm.closest(".shot").remove()}
   imgDel(id);return}
  if(zoom){const o=await imgGet(zoom.dataset.lb);if(o)showLb(o.url)}});
-/* ===== Other bugs (temporary, not in checklist) ===== */
-const XK="aspio-qa-extra";let extra=[],editId=null,xImgs=[];
-try{extra=JSON.parse(localStorage.getItem(XK)||"[]")}catch(e){}
-const storeX=()=>{try{localStorage.setItem(XK,JSON.stringify(extra))}catch(e){}};
-const xv=id=>$("#"+id).value.trim();
-function drawExtra(){
- $("#xAreas").innerHTML=[...new Set(DATA.cases.map(c=>c.module))].sort().map(m=>`<option value="${esc(m)}">`).join("");
- $("#xCount").textContent=(extra.length?extra.length+" logged":"Not in the checklist")+" · saved temporarily in this browser";
- $("#xClear").hidden=!extra.length;
- $("#xList").innerHTML=extra.map((b,i)=>`<div class="xb"><div class="xh"><span class="sev ${esc(b.sev)}">${esc(b.sev)}</span><b>${esc(b.title)}</b><button class="btn out" type="button" data-xe="${esc(b.id)}">Edit</button><button class="btn out" type="button" data-xd="${esc(b.id)}">Delete</button></div><small>BUG-${i+1}${b.area?" · "+esc(b.area):""}${b.link?" · "+esc(b.link):""}</small>${b.steps?`<div class="xs">${esc(b.steps)}</div>`:""}<div class="shots">${thumbs(b.imgs||[],false)}</div></div>`).join("");fillThumbs($("#xList"))}
-function clearX(){editId=null;xImgs=[];$("#xShots").innerHTML="";["xTitle","xArea","xSteps","xExp","xAct","xLink"].forEach(i=>$("#"+i).value="");$("#xSev").value="High";$("#xAdd").textContent="Add bug";$("#xCancel").hidden=true}
-function addX(){const t=xv("xTitle");if(!t){$("#xTitle").style.borderColor="var(--fail)";$("#xTitle").focus();return}
- $("#xTitle").style.borderColor="";
- const b={id:editId||("x"+Date.now()),title:t,sev:$("#xSev").value,area:xv("xArea"),steps:xv("xSteps"),exp:xv("xExp"),act:xv("xAct"),link:xv("xLink"),imgs:[...xImgs]};
- if(editId)extra=extra.map(x=>x.id===editId?b:x);else extra.push(b);
- storeX();clearX();drawExtra()}
-$("#xAdd").onclick=addX;$("#xCancel").onclick=clearX;
-$("#xTitle").addEventListener("keydown",e=>{if(e.key==="Enter")addX()});
-$("#xList").addEventListener("click",e=>{const d=e.target.closest("[data-xd]"),ed=e.target.closest("[data-xe]");
- if(d){const gone=extra.find(x=>x.id===d.dataset.xd);((gone&&gone.imgs)||[]).forEach(imgDel);extra=extra.filter(x=>x.id!==d.dataset.xd);if(editId===d.dataset.xd)clearX();storeX();drawExtra()}
- if(ed){const b=extra.find(x=>x.id===ed.dataset.xe);if(!b)return;editId=b.id;
-  $("#xTitle").value=b.title;$("#xSev").value=b.sev;$("#xArea").value=b.area;$("#xSteps").value=b.steps;$("#xExp").value=b.exp;$("#xAct").value=b.act;$("#xLink").value=b.link;
-  xImgs=[...(b.imgs||[])];$("#xShots").innerHTML=thumbs(xImgs);fillThumbs($("#xShots"));$("#xAdd").textContent="Save changes";$("#xCancel").hidden=false;$("#xTitle").scrollIntoView({behavior:"smooth",block:"center"});$("#xTitle").focus()}});
-$("#xClear").onclick=()=>{if(confirm("Remove all "+extra.length+" extra bugs logged here?")){extra.flatMap(b=>b.imgs||[]).forEach(imgDel);extra=[];storeX();clearX();drawExtra()}};
-async function xAttach(files){const ids=await addImgs(files);if(!ids.length)return;xImgs.push(...ids);$("#xShots").insertAdjacentHTML("beforeend",thumbs(ids));fillThumbs($("#xShots"))}
-$("#xPanel").addEventListener("paste",e=>{const p=pastedImages(e);if(!p.files.length)return;if(!p.hasText)e.preventDefault();xAttach(p.files)});
-$("#xFile").onchange=async e=>{const f=[...e.target.files];e.target.value="";await xAttach(f)};
-drawExtra();
-const xOn=()=>extra.length>0&&$("#useX").checked;
-const xrows=()=>extra.map((b,i)=>({id:"BUG-"+(i+1),module:b.area||"Not specified",check:b.title,priority:b.sev,status:"New bug",steps:b.steps?b.steps.split(/\n+/).map(s=>s.trim()).filter(Boolean):["(none given)"],expected:b.exp||"(not provided)",notes:[b.act?"Actual: "+b.act:"",b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"Additional bugs (not in checklist)",imgs:b.imgs||[]}));
 /* ===== New features page ===== */
 const FEAT=[
 ["NF-01","Access","Feature can be found and opened from its expected entry point","1. Log in as a user who should have access. 2. Open the feature from the menu, button or link where users would expect it.","The feature opens quickly with no error or blank screen.","High"],
@@ -295,71 +264,94 @@ $("#exp2").onclick=()=>openExp("features");
 try{$("#fName").value=localStorage.getItem("aspio-qa-fname")||""}catch(e){}
 $("#fName").addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-fname",$("#fName").value)}catch(e){}});
 
-/* Labels + issues log */
-const LK="aspio-qa-labels",FK="aspio-qa-fissues";
+/* ===== Findings & bugs (one log for every page) ===== */
+const LK="aspio-qa-labels",FINDK="aspio-qa-findings-v1",FINDMIG="aspio-qa-findings-migrated-v1";
 let LAB=null;try{LAB=JSON.parse(localStorage.getItem(LK))}catch(e){}
 if(!Array.isArray(LAB))LAB=["Bug","Content issue","UI / UX","Typo","Idea"];
-let fIssues=[];try{fIssues=JSON.parse(localStorage.getItem(FK)||"[]")}catch(e){}if(!Array.isArray(fIssues))fIssues=[];
-const saveL=()=>{try{localStorage.setItem(LK,JSON.stringify(LAB))}catch(e){}},saveF=()=>{try{localStorage.setItem(FK,JSON.stringify(fIssues))}catch(e){}};
-let fiSel=[],fiImgs=[],fiEdit=null,fiFilt="",manage=false;
+const saveL=()=>{try{localStorage.setItem(LK,JSON.stringify(LAB))}catch(e){}};
+const FND_PAGES=[["check","Main checklist"],["features","New features"],["lastweek","Last week's changes"],["develop","Develop branch"],["staging","Staging release"]];
+const fndPageLabel=k=>(FND_PAGES.find(p=>p[0]===k)||["","Unknown page"])[1];
+let findings=[];try{findings=JSON.parse(localStorage.getItem(FINDK)||"[]")}catch(e){}
+if(!Array.isArray(findings))findings=[];
+const saveFindings=()=>{try{localStorage.setItem(FINDK,JSON.stringify(findings))}catch(e){}};
+let fndEdit=null,fndImgs=[],fndSel=[],fndManage=false,fndFilters={};
 const hue=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h};
 const labChip=l=>`<span class="lab" style="--h:${hue(l)}">${esc(l)}</span>`;
 function addLabel(raw){const n=String(raw).replace(/\s+/g," ").trim().slice(0,24);if(!n)return null;
- const ex=LAB.find(l=>l.toLowerCase()===n.toLowerCase()),name=ex||n;if(!ex){LAB.push(name);saveL()}if(!fiSel.includes(name))fiSel.push(name);return name}
-function drawLib(){
- $("#fiLib").innerHTML=LAB.map(l=>`<button type="button" class="lab" style="--h:${hue(l)}" data-lab="${esc(l)}" aria-pressed="${fiSel.includes(l)}">${esc(l)}${manage?`<span class="ld" data-labdel="${esc(l)}" title="Delete label">✕</span>`:""}</button>`).join("")||'<span class="mut">No labels yet. Create one below.</span>';
- $("#fiManage").textContent=manage?"Done":"Manage labels"}
-function drawFeat(){
- drawLib();
- const used={};fIssues.forEach(b=>b.labels.forEach(l=>used[l]=(used[l]||0)+1));
- if(fiFilt&&!used[fiFilt])fiFilt="";
- $("#fiCount").textContent=(fIssues.length?fIssues.length+" logged":"Nothing logged yet")+" · saved temporarily in this browser";
+ const ex=LAB.find(l=>l.toLowerCase()===n.toLowerCase()),name=ex||n;if(!ex){LAB.push(name);saveL()}if(!fndSel.includes(name))fndSel.push(name);return name}
+function drawFndLib(){
+ $("#fndLib").innerHTML=LAB.map(l=>`<button type="button" class="lab" style="--h:${hue(l)}" data-fnd-lab="${esc(l)}" aria-pressed="${fndSel.includes(l)}">${esc(l)}${fndManage?`<span class="ld" data-fnd-labdel="${esc(l)}" title="Delete label">✕</span>`:""}</button>`).join("")||'<span class="mut">No labels yet. Create one below.</span>';
+ $("#fndManage").textContent=fndManage?"Done":"Manage labels"}
+function migrateFindings(){
+ let done=false;try{done=localStorage.getItem(FINDMIG)==="1"}catch(e){}
+ if(done)return;
+ let oldExtra=[],oldIssues=[];
+ try{oldExtra=JSON.parse(localStorage.getItem("aspio-qa-extra")||"[]")}catch(e){}
+ try{oldIssues=JSON.parse(localStorage.getItem("aspio-qa-fissues")||"[]")}catch(e){}
+ if(!Array.isArray(oldExtra))oldExtra=[];
+ if(!Array.isArray(oldIssues))oldIssues=[];
+ const existing=new Set(findings.map(b=>b.id)),imported=[];
+ oldExtra.forEach((b,i)=>{const id="fnd-legacy-x-"+i;if(existing.has(id))return;
+  imported.push({id,page:"check",title:b.title||"Untitled finding",sev:b.sev||"Medium",area:b.area||"",steps:b.steps||"",expected:b.exp||"",actual:b.act||"",link:b.link||"",labels:[],imgs:[...(b.imgs||[])],created:Date.now()+i})});
+ oldIssues.forEach((b,i)=>{const id="fnd-legacy-f-"+i;if(existing.has(id))return;
+  imported.push({id,page:"features",title:b.title||"Untitled finding",sev:b.sev||"Medium",area:"New feature",steps:"",expected:"",actual:b.details||"",link:b.link||"",labels:[...(b.labels||[])],imgs:[...(b.imgs||[])],created:Date.now()+oldExtra.length+i})});
+ if(imported.length){findings=[...findings,...imported];saveFindings()}
+ try{localStorage.setItem(FINDMIG,"1")}catch(e){}
+}
+migrateFindings();
+function findingRow(b,i){return `<div class="xb"><div class="xh"><span class="sev ${esc(b.sev)}">${esc(b.sev)}</span><b>${esc(b.title)}</b><button class="btn out" type="button" data-fnd-edit="${esc(b.id)}">Edit</button><button class="btn out" type="button" data-fnd-del="${esc(b.id)}">Delete</button></div>${(b.labels||[]).length?`<div class="labs">${b.labels.map(labChip).join("")}</div>`:""}<small>FIND-${i+1} · ${esc(fndPageLabel(b.page))}${b.area?" · "+esc(b.area):""}${b.link?" · "+esc(b.link):""}</small>${b.steps?`<div class="xs"><b>Steps:</b>\n${esc(b.steps)}</div>`:""}${b.expected?`<div class="xs"><b>Expected:</b> ${esc(b.expected)}</div>`:""}${b.actual?`<div class="xs"><b>Actual:</b> ${esc(b.actual)}</div>`:""}<div class="shots">${thumbs(b.imgs||[],false)}</div></div>`}
+function drawFindingsBlock(page){
+ const box=$("#findings-"+page);if(!box)return;
+ const all=findings.map((b,i)=>({b,i})).filter(o=>o.b.page===page);
+ const used={};all.forEach(({b})=>(b.labels||[]).forEach(l=>used[l]=(used[l]||0)+1));
+ const filt=fndFilters[page]||"";
+ if(filt&&!used[filt])fndFilters[page]="";
  const names=[...new Set([...LAB.filter(l=>used[l]),...Object.keys(used)])];
- $("#fiFilter").innerHTML=fIssues.length?`<button class="chip" type="button" data-ff="" aria-pressed="${fiFilt===""}">All <b>${fIssues.length}</b></button>`+names.map(l=>`<button class="chip" type="button" data-ff="${esc(l)}" aria-pressed="${fiFilt===l}"><span class="dotc" style="background:hsl(${hue(l)} 65% 48%)"></span>${esc(l)} <b>${used[l]}</b></button>`).join(""):"";
- const list=fIssues.map((b,i)=>({b,i})).filter(o=>!fiFilt||o.b.labels.includes(fiFilt)).reverse();
- $("#fiList").innerHTML=list.map(({b,i})=>`<div class="xb"><div class="xh"><span class="sev ${esc(b.sev)}">${esc(b.sev)}</span><b>${esc(b.title)}</b><button class="btn out" type="button" data-fe="${esc(b.id)}">Edit</button><button class="btn out" type="button" data-fd="${esc(b.id)}">Delete</button></div>${b.labels.length?`<div class="labs">${b.labels.map(labChip).join("")}</div>`:""}<small>ISSUE-${i+1}${b.link?" · "+esc(b.link):""}</small>${b.details?`<div class="xs">${esc(b.details)}</div>`:""}<div class="shots">${thumbs(b.imgs||[],false)}</div></div>`).join("")||(fIssues.length?'<div class="empty">No items with this label.</div>':"");
- fillThumbs($("#fiList"))}
-function resetFi(){fiEdit=null;fiImgs=[];fiSel=[];["fiTitle","fiDetails","fiLink"].forEach(i=>$("#"+i).value="");$("#fiSev").value="Medium";$("#fiShots").innerHTML="";$("#fiAdd").textContent="Add to log";$("#fiCancel").hidden=true;drawLib()}
-function saveFi(){const t=$("#fiTitle").value.trim();if(!t){$("#fiTitle").style.borderColor="var(--fail)";$("#fiTitle").focus();return}
- $("#fiTitle").style.borderColor="";
- const b={id:fiEdit||("f"+Date.now()),title:t,details:$("#fiDetails").value.trim(),sev:$("#fiSev").value,link:$("#fiLink").value.trim(),labels:[...fiSel],imgs:[...fiImgs]};
- if(fiEdit)fIssues=fIssues.map(x=>x.id===fiEdit?b:x);else fIssues.push(b);
- saveF();resetFi();drawFeat()}
-$("#fiAdd").onclick=saveFi;$("#fiCancel").onclick=resetFi;
-$("#fiTitle").addEventListener("keydown",e=>{if(e.key==="Enter")saveFi()});
-$("#fiLib").addEventListener("click",e=>{const d=e.target.closest("[data-labdel]");
- if(d){const l=d.dataset.labdel;LAB=LAB.filter(x=>x!==l);fiSel=fiSel.filter(x=>x!==l);saveL();drawLib();return}
- const b=e.target.closest("[data-lab]");if(!b)return;const l=b.dataset.lab;fiSel=fiSel.includes(l)?fiSel.filter(x=>x!==l):[...fiSel,l];drawLib()});
-const makeLab=()=>{const i=$("#fiNewLab");i.value.split(",").forEach(addLabel);i.value="";drawLib()};
-$("#fiAddLab").onclick=makeLab;
-$("#fiNewLab").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();makeLab()}});
-$("#fiManage").onclick=()=>{manage=!manage;drawLib()};
-$("#fiFilter").addEventListener("click",e=>{const b=e.target.closest("[data-ff]");if(!b)return;fiFilt=b.dataset.ff===fiFilt?"":b.dataset.ff;drawFeat()});
-$("#fiList").addEventListener("click",e=>{const d=e.target.closest("[data-fd]"),ed=e.target.closest("[data-fe]");
- if(d){const g=fIssues.find(x=>x.id===d.dataset.fd);((g&&g.imgs)||[]).forEach(imgDel);fIssues=fIssues.filter(x=>x.id!==d.dataset.fd);if(fiEdit===d.dataset.fd)resetFi();saveF();drawFeat()}
- if(ed){const b=fIssues.find(x=>x.id===ed.dataset.fe);if(!b)return;
-  b.labels.forEach(l=>{if(!LAB.some(x=>x.toLowerCase()===l.toLowerCase())){LAB.push(l);saveL()}});
-  fiEdit=b.id;$("#fiTitle").value=b.title;$("#fiDetails").value=b.details||"";$("#fiSev").value=b.sev;$("#fiLink").value=b.link||"";fiSel=[...b.labels];fiImgs=[...(b.imgs||[])];
-  $("#fiShots").innerHTML=thumbs(fiImgs);fillThumbs($("#fiShots"));$("#fiAdd").textContent="Save changes";$("#fiCancel").hidden=false;drawLib();
-  $("#fiTitle").scrollIntoView({behavior:"smooth",block:"center"});$("#fiTitle").focus()}});
-async function fiAttach(files){const ids=await addImgs(files);if(!ids.length)return;fiImgs.push(...ids);$("#fiShots").insertAdjacentHTML("beforeend",thumbs(ids));fillThumbs($("#fiShots"))}
-$("#fiPanel").addEventListener("paste",e=>{const p=pastedImages(e);if(!p.files.length)return;if(!p.hasText)e.preventDefault();fiAttach(p.files)});
-$("#fiFile").onchange=async e=>{const f=[...e.target.files];e.target.value="";await fiAttach(f)};
-/* export hooks */
-const fOn=()=>$("#useFeat").checked;
-const frows=()=>{const lab=$("#expLabel").value;
- const c=FEAT.filter(i=>scopeMatch(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"New feature checklist",imgs:state(i.id).imgs||[],labels:[]}));
- const q=fIssues.map((b,i)=>({b,i})).filter(o=>!lab||o.b.labels.includes(lab)).map(({b,i})=>({id:"ISSUE-"+(i+1),module:"New feature issue",check:b.title,priority:b.sev,status:"Issue",steps:[],expected:"",nlabel:"DETAILS",notes:[b.details,b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"New feature issues",imgs:b.imgs||[],labels:b.labels||[]}));
- return [...c,...q]};
-const lrows=()=>LAST.filter(i=>scopeMatch(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
-const drows=()=>DEVELOP.filter(i=>scopeMatch(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
-const srows=()=>{let list=STAGING.filter(c=>scopeMatch(c.id));
- if(useF&&exportPage==="staging"){const q=$("#sq").value.toLowerCase(),m=$("#smod").value,p=$("#spri").value;
-  list=list.filter(c=>(!q||[c.id,c.module,c.check,c.group].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))}
- if(onlyTouched&&(scope==="all"||scope==="checked"))list=list.filter(c=>isTouched(c.id));
- return list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,pre:c.pre||"",notes:(state(c.id).notes||"").trim(),group:"Staging release · "+c.group,imgs:state(c.id).imgs||[],labels:[]}))};
-function fillExpLabels(){const u=[...new Set(fIssues.flatMap(b=>b.labels))].sort(),el=$("#expLabel");el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("")}
-$("#useFeat").onchange=()=>drawScope();$("#expLabel").onchange=()=>refreshExp();
+ const list=all.filter(o=>!fndFilters[page]||(o.b.labels||[]).includes(fndFilters[page])).reverse();
+ box.innerHTML=`<div class="gh"><h2>Findings &amp; bugs</h2><span>${all.length?all.length+" logged on this page":"Nothing logged yet"}</span></div><section class="panel findings-panel"><p class="xhint">Found something on this page? Add it here. Findings are saved in this browser and included in every export format.</p><div class="row2"><button class="btn" type="button" data-fnd-add="${page}">＋ Add finding / bug</button></div>${all.length?`<div class="chips wrap"> <button class="chip" type="button" data-fnd-filter="" data-fnd-page="${page}" aria-pressed="${!fndFilters[page]}">All <b>${all.length}</b></button>${names.map(l=>`<button class="chip" type="button" data-fnd-filter="${esc(l)}" data-fnd-page="${page}" aria-pressed="${fndFilters[page]===l}"><span class="dotc" style="background:hsl(${hue(l)} 65% 48%)"></span>${esc(l)} <b>${used[l]}</b></button>`).join("")}</div>`:""}<div>${list.map(({b,i})=>findingRow(b,i)).join("")||(all.length?'<div class="empty">No findings with this label.</div>':"")}</div></section>`;
+ fillThumbs(box)}
+function drawAllFindings(){FND_PAGES.forEach(p=>drawFindingsBlock(p[0]))}
+function resetFinding(page){
+ fndEdit=null;fndImgs=[];fndSel=[];fndManage=false;["fndTitle","fndArea","fndSteps","fndExp","fndAct","fndLink"].forEach(i=>$("#"+i).value="");
+ $("#fndSev").value="High";$("#fndPage").value=page||curPage;$("#fndShots").innerHTML="";$("#fndModalTitle").textContent="Add finding or bug";$("#fndSave").textContent="Save finding";drawFndLib()}
+function openFinding(page,id){
+ if(id){const b=findings.find(x=>x.id===id);if(!b)return;
+  fndEdit=id;fndImgs=[...(b.imgs||[])];fndSel=[...(b.labels||[])];fndManage=false;
+  $("#fndPage").value=b.page;$("#fndSev").value=b.sev||"High";$("#fndArea").value=b.area||"";$("#fndTitle").value=b.title||"";$("#fndSteps").value=b.steps||"";$("#fndExp").value=b.expected||"";$("#fndAct").value=b.actual||"";$("#fndLink").value=b.link||"";
+  $("#fndShots").innerHTML=thumbs(fndImgs);fillThumbs($("#fndShots"));$("#fndModalTitle").textContent="Edit finding or bug";$("#fndSave").textContent="Save changes";drawFndLib()
+ }else resetFinding(page||curPage);
+ $("#fndModal").hidden=false;setTimeout(()=>$("#fndTitle").focus(),50)}
+function closeFinding(){$("#fndModal").hidden=true}
+function saveFinding(){
+ const title=$("#fndTitle").value.trim();if(!title){$("#fndTitle").style.borderColor="var(--fail)";$("#fndTitle").focus();return}
+ $("#fndTitle").style.borderColor="";
+ const b={id:fndEdit||("fnd"+Date.now()),page:$("#fndPage").value,title,sev:$("#fndSev").value,area:$("#fndArea").value.trim(),steps:$("#fndSteps").value.trim(),expected:$("#fndExp").value.trim(),actual:$("#fndAct").value.trim(),link:$("#fndLink").value.trim(),labels:[...fndSel],imgs:[...fndImgs],created:Date.now()};
+ if(fndEdit)findings=findings.map(x=>x.id===fndEdit?{...x,...b}:x);else findings.push(b);
+ saveFindings();closeFinding();drawAllFindings();fillExpLabels()}
+function deleteFinding(id){const b=findings.find(x=>x.id===id);if(!b)return;
+ if(!confirm("Delete this finding?"))return;
+ (b.imgs||[]).forEach(imgDel);findings=findings.filter(x=>x.id!==id);if(fndEdit===id)closeFinding();saveFindings();drawAllFindings();fillExpLabels()}
+async function fndAttach(files){const ids=await addImgs(files);if(!ids.length)return;fndImgs.push(...ids);$("#fndShots").insertAdjacentHTML("beforeend",thumbs(ids));fillThumbs($("#fndShots"))}
+$("#addFinding").onclick=()=>openFinding(curPage);
+$("#fndClose").onclick=closeFinding;$("#fndCancel").onclick=closeFinding;
+$("#fndSave").onclick=saveFinding;
+$("#fndTitle").addEventListener("keydown",e=>{if(e.key==="Enter")saveFinding()});
+$("#fndLib").addEventListener("click",e=>{const d=e.target.closest("[data-fnd-labdel]");
+ if(d){const l=d.dataset.fndLabdel;LAB=LAB.filter(x=>x!==l);fndSel=fndSel.filter(x=>x!==l);saveL();drawFndLib();return}
+ const b=e.target.closest("[data-fnd-lab]");if(!b)return;const l=b.dataset.fndLab;fndSel=fndSel.includes(l)?fndSel.filter(x=>x!==l):[...fndSel,l];drawFndLib()});
+const makeFndLab=()=>{const i=$("#fndNewLab");i.value.split(",").forEach(addLabel);i.value="";drawFndLib()};
+$("#fndAddLab").onclick=makeFndLab;
+$("#fndNewLab").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===","){e.preventDefault();makeFndLab()}});
+$("#fndManage").onclick=()=>{fndManage=!fndManage;drawFndLib()};
+$("#fndModal").addEventListener("paste",e=>{const p=pastedImages(e);if(!p.files.length)return;if(!p.hasText)e.preventDefault();fndAttach(p.files)});
+$("#fndFile").onchange=async e=>{const f=[...e.target.files];e.target.value="";await fndAttach(f)};
+document.addEventListener("click",e=>{const add=e.target.closest("[data-fnd-add]"),filt=e.target.closest("[data-fnd-filter]"),edit=e.target.closest("[data-fnd-edit]"),del=e.target.closest("[data-fnd-del]");
+ if(add){openFinding(add.dataset.fndAdd);return}
+ if(filt){const page=filt.dataset.fndPage;fndFilters[page]=fndFilters[page]===filt.dataset.fndFilter?"":filt.dataset.fndFilter;drawFindingsBlock(page);return}
+ if(edit){openFinding(null,edit.dataset.fndEdit);return}
+ if(del){deleteFinding(del.dataset.fndDel)}});
+$("#fndAreas").innerHTML=[...new Set([...DATA.cases.map(c=>c.module),...FEAT.map(c=>c.module),...LAST.map(c=>c.module),...DEVELOP.map(c=>c.module),...STAGING.map(c=>c.module)])].sort().map(m=>`<option value="${esc(m)}">`).join("");
+/* export hooks are defined in the export section below */
 /* tabs */
 function showPage(p){curPage=p;
  $("#pgCheck").hidden=p!=="check";
@@ -382,20 +374,42 @@ $("#dNext").onclick=()=>dNext(null);
 $("#exp3").onclick=()=>openExp("lastweek");
 $("#exp4").onclick=()=>openExp("develop");
 window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#staging"?"staging":h==="#lastweek"?"lastweek":h==="#develop"?"develop":"check")});
-drawFeatList();drawFeat();fillStagingStatic();showPage(location.hash==="#features"?"features":location.hash==="#staging"?"staging":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":"check");
+drawFeatList();drawAllFindings();fillStagingStatic();showPage(location.hash==="#features"?"features":location.hash==="#staging"?"staging":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":"check");
 /* ===== Export / print ===== */
 const isTouched=id=>{const st=state(id);return st.status!=="Not tested"||(st.done||[]).length>0||!!(st.notes||"").trim()||(st.imgs||[]).length>0};
-const SCOPES=[["all","All tests",()=>true],["checked","Checked only",(s,id)=>isTouched(id)],["Not tested","Not tested",s=>s==="Not tested"],["Passed","Passed",s=>s==="Passed"],["Failed","Failed",s=>s==="Failed"],["Blocked","Blocked",s=>s==="Blocked"],["attn","Failed + Blocked",s=>s==="Failed"||s==="Blocked"],["Not applicable","N/A",s=>s==="Not applicable"]];
-let scope="all",useF=false,useStaging=false,onlyTouched=true,exportPage="check";
-const scopeName=()=>SCOPES.find(s=>s[0]===scope)[1];
-const scopeMatch=id=>{const s=SCOPES.find(x=>x[0]===scope);return s[2](state(id).status,id)};
-function scoped(){const q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
- return items.filter(c=>scopeMatch(c.id)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
-const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,pre:c.pre||"",notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
-const rows=list=>[...(exportPage==="staging"?[]:baseRows(list)),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[]),...(useStaging?srows():[])];
+const STATUSES=[["Passed","Passed"],["Failed","Failed"],["Blocked","Blocked"],["Not applicable","N/A"],["Not tested","Not tested"]];
+const STATUS_LABEL=Object.fromEntries(STATUSES);
+let statusSel=Object.fromEntries(STATUSES.map(s=>[s[0],true]));
+let useF=false,onlyTouched=true,exportPage="check";
+const statusMatch=id=>!!statusSel[state(id).status];
+const statusSummary=()=>{const on=STATUSES.map(s=>s[0]).filter(s=>statusSel[s]);return on.length===STATUSES.length?"All statuses":on.length?on.map(s=>STATUS_LABEL[s]).join(" + "):"No statuses"};
+const pageSummary=()=>{const p=[];if($("#useMain").checked)p.push("Main");if($("#useFeat").checked)p.push("Features");if($("#useLast").checked)p.push("Last week");if($("#useDevelop").checked)p.push("Develop");if($("#useStaging").checked)p.push("Staging");if($("#useFindings").checked)p.push("Findings");return p.join(", ")||"No pages"};
+const scopeName=()=>statusSummary()+(useF?" (filtered)":"")+" · "+pageSummary();
+function setStatusPreset(p){const all=STATUSES.map(s=>s[0]);
+ all.forEach(s=>statusSel[s]=p==="all"||(p==="failed"&&s==="Failed")||(p==="attn"&&(s==="Failed"||s==="Blocked"))||(p==="passed"&&s==="Passed"))}
+function mainPool(){let list=items;
+ if(useF&&exportPage==="check"){const q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
+  list=list.filter(c=>(!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))}
+ if(onlyTouched)list=list.filter(c=>isTouched(c.id));
+ return list}
+const featPool=()=>{let list=FEAT;if(onlyTouched)list=list.filter(i=>isTouched(i.id));return list};
+const lastPool=()=>{let list=LAST;if(onlyTouched)list=list.filter(i=>isTouched(i.id));return list};
+const developPool=()=>{let list=DEVELOP;if(onlyTouched)list=list.filter(i=>isTouched(i.id));return list};
+function stagingPool(){let list=STAGING;
+ if(useF&&exportPage==="staging"){const q=$("#sq").value.toLowerCase(),m=$("#smod").value,p=$("#spri").value;
+  list=list.filter(c=>(!q||[c.id,c.module,c.check,c.group].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))}
+ if(onlyTouched)list=list.filter(c=>isTouched(c.id));
+ return list}
+const checklistPool=()=>[...($("#useMain").checked?mainPool():[]),...($("#useFeat").checked?featPool():[]),...($("#useLast").checked?lastPool():[]),...($("#useDevelop").checked?developPool():[]),...($("#useStaging").checked?stagingPool():[])];
+const baseRows=(list,groupOf)=>list.filter(i=>statusMatch(i.id)).map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,pre:c.pre||"",notes:(state(c.id).notes||"").trim(),group:groupOf(c),imgs:state(c.id).imgs||[],labels:[]}));
+const findingRows=()=>{const lab=$("#expLabel").value;
+ return findings.map((b,i)=>({b,i})).filter(o=>!lab||(o.b.labels||[]).includes(lab)).map(({b,i})=>({id:"FIND-"+(i+1),module:b.area||fndPageLabel(b.page),check:b.title,priority:b.sev||"Medium",status:"Finding",steps:b.steps?stepsOf(b.steps):[],expected:b.expected||"",pre:"",notes:[b.actual?"Actual: "+b.actual:"",b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"Findings · "+fndPageLabel(b.page),imgs:b.imgs||[],labels:b.labels||[]}))};
+function rows(){return [...($("#useMain").checked?baseRows(mainPool(),c=>GRP[c.grp]):[]),...($("#useFeat").checked?baseRows(featPool(),()=>"New feature checklist"):[]),...($("#useLast").checked?baseRows(lastPool(),()=>"Last week's changes"):[]),...($("#useDevelop").checked?baseRows(developPool(),()=>"Develop branch"):[]),...($("#useStaging").checked?baseRows(stagingPool(),c=>"Staging release · "+c.group):[]),...($("#useFindings").checked?findingRows():[])]}
 const meta=()=>{const stg=exportPage==="staging";
- return {feature:stg?"Staging release":$("#fName").value.trim(),tester:stg?$("#sTester").value.trim():$("#tester").value.trim(),build:stg?($("#sBuild").value.trim()||STAGING_META.build||""):$("#build").value.trim(),decision:stg?$("#sDecision").value:$("#decision").value,date:(stg?$("#sDate").value:$("#date").value)||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")}};
-const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"");
+ return {feature:stg?"Staging release":$("#fName").value.trim(),tester:stg?$("#sTester").value.trim():$("#tester").value.trim(),build:stg?($("#sBuild").value.trim()||STAGING_META.build||""):$("#build").value.trim(),decision:stg?$("#sDecision").value:$("#decision").value,date:(stg?$("#sDate").value:$("#date").value)||new Date().toISOString().slice(0,10),scope:scopeName()}};
+const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"").slice(0,80);
+function fillExpLabels(){const u=[...new Set(findings.flatMap(b=>b.labels||[]))].sort(),el=$("#expLabel"),old=el.value;
+ el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("");if(u.includes(old))el.value=old}
 function summaryText(R){const c={};R.forEach(x=>{c[x.status]=(c[x.status]||0)+1});
  const known=(c.Passed||0)+(c.Failed||0)+(c.Blocked||0)+(c["Not applicable"]||0)+(c["Not tested"]||0),other=R.length-known;
  return "Included: "+R.length+" item"+(R.length===1?"":"s")+" - "+(c.Passed||0)+" passed, "+(c.Failed||0)+" failed, "+(c.Blocked||0)+" blocked, "+(c["Not applicable"]||0)+" N/A, "+(c["Not tested"]||0)+" not tested"+(other?" + "+other+" logged item"+(other===1?"":"s"):"")}
@@ -403,14 +417,14 @@ async function saveFile(name,data,type){
  let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null}catch(e){}
  if(dl){try{await dl.save({filename:name,data});return "saved"}catch(e){if(e&&e.code==="declined")return "declined";throw e}}
  const a=document.createElement("a");a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return "saved"}
-function csvOut(list){const r=[["ID","Section","Module","Test","Priority","Status","Preconditions","Steps","Expected result","Notes","Screenshots","Labels"]];
- rows(list).forEach(x=>r.push([x.id,x.group,x.module,x.check,x.priority,x.status,x.pre||"",x.steps.join(" | "),x.expected,x.notes,(x.imgs||[]).length?x.imgs.length+" attached (see PDF)":"",(x.labels||[]).join("; ")]));
+function csvOut(R){const r=[["ID","Section","Module","Test","Priority","Status","Preconditions","Steps","Expected result","Notes","Screenshots","Labels"]];
+ R.forEach(x=>r.push([x.id,x.group,x.module,x.check,x.priority,x.status,x.pre||"",x.steps.join(" | "),x.expected,x.notes,(x.imgs||[]).length?x.imgs.length+" attached (see PDF)":"",(x.labels||[]).join("; ")]));
  return "\uFEFF"+r.map(x=>x.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n")}
 const safe=s=>String(s??"").replace(/→/g,">").replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—·]/g,"-").replace(/…/g,"...").split("").map(ch=>ch.charCodeAt(0)>255?"":ch).join("");
-function pdfOut(list){
+function pdfOut(R){
  const J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw new Error("the PDF library could not load (check your connection)");
- const d=new J({unit:"pt",format:"a4"}),W=d.internal.pageSize.getWidth(),H=d.internal.pageSize.getHeight(),M=40,CW=W-2*M,m=meta(),R=rows(list);let y=0;
- const COL={"Passed":[15,122,66],"Failed":[196,48,63],"Blocked":[163,95,0],"Not applicable":[117,109,133],"Not tested":[130,125,140],"New bug":[109,0,204],"Issue":[109,0,204]};
+ const d=new J({unit:"pt",format:"a4"}),W=d.internal.pageSize.getWidth(),H=d.internal.pageSize.getHeight(),M=40,CW=W-2*M,m=meta();let y=0;
+ const COL={"Passed":[15,122,66],"Failed":[196,48,63],"Blocked":[163,95,0],"Not applicable":[117,109,133],"Not tested":[130,125,140],"Finding":[109,0,204]};
  const tx=(s,o)=>{o=o||{};const sz=o.sz||10,x=o.x||M,w=o.w||(W-M-x);d.setFont("helvetica",o.b?"bold":(o.i?"italic":"normal"));d.setFontSize(sz);d.setTextColor.apply(d,o.c||[30,22,48]);
   d.splitTextToSize(safe(s),w).forEach(l=>{if(y+sz*1.3>H-M){d.addPage();y=M}d.text(l,x,y+sz*.9);y+=sz*1.35});y+=o.gap||0};
  d.setFillColor(109,0,204);d.rect(0,0,W,92,"F");
@@ -439,34 +453,63 @@ function pdfOut(list){
   y+=6;d.setDrawColor(228,220,240);d.line(M,y,W-M,y);y+=14});
  const n=d.getNumberOfPages();for(let i=1;i<=n;i++){d.setPage(i);d.setFont("helvetica","normal");d.setFontSize(8);d.setTextColor(140,130,155);d.text("Aspio QA report  -  Page "+i+" of "+n,W/2,H-20,{align:"center"})}
  return d.output("blob")}
-function printOut(list){
- const m=meta(),R=rows(list);
+function printOut(R){
+ const m=meta();
  $("#printArea").innerHTML=`<h1>Aspio Business App · QA test report</h1><p class="pm">Scope: <b>${esc(m.scope)}</b>${m.feature?" · Feature: <b>"+esc(m.feature)+"</b>":""} · ${R.length} item${R.length===1?"":"s"} · ${esc(m.date)}${m.tester?" · Tester: "+esc(m.tester):""}${m.build?" · Build: "+esc(m.build):""}${m.decision?" · Decision: "+esc(m.decision):""}</p><p class="pm">${esc(summaryText(R))}</p>`+
  R.map(x=>`<section class="pi s-${x.status.replace(/ /g,"_")}"><div class="ph"><b>${esc(x.id)}</b><span>${esc(x.module)} · ${esc(x.priority)}</span><em>${esc(x.status)}</em></div><h3>${esc(x.check)}</h3>${(x.labels||[]).length?`<div class="pl">Labels: ${esc(x.labels.join(", "))}</div>`:""}${x.pre?`<div class="pl">Preconditions</div><p>${esc(x.pre)}</p>`:""}${x.expected?`<div class="pl">Expected result</div><p>${esc(x.expected)}</p>`:""}${x.steps.length?`<div class="pl">Steps</div><ol>${x.steps.map(s=>"<li>"+esc(s)+"</li>").join("")}</ol>`:""}<div class="pl">${esc(x.nlabel||"Actual result / notes")}</div><p>${x.notes?esc(x.notes):"<i>No notes recorded</i>"}</p>${(x.imgs||[]).map(id=>imgCache[id]).filter(Boolean).map(o=>`<img class="pimg" src="${o.url}" alt="Screenshot">`).join("")}</section>`).join("");
  document.body.classList.add("printing");
  const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done)};
  window.addEventListener("afterprint",done);
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,1500)},60)}
-function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;useStaging=$("#useStaging").checked;onlyTouched=$("#onlyTouched").checked;const n=rows(scoped()).length;$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
-function drawScope(){useF=$("#useF").checked;useStaging=$("#useStaging").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;onlyTouched=$("#onlyTouched").checked;const pool=[...(exportPage==="staging"?[]:items),...(fOn()?FEAT:[]),...(useLast?LAST:[]),...(useDevelop?DEVELOP:[]),...(useStaging?STAGING:[])];
- $("#scope").innerHTML=SCOPES.map(s=>{const n=pool.filter(i=>s[2](state(i.id).status,i.id)).length;return `<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${n}</b></button>`}).join("");refreshExp()}
-function openExp(page){exportPage=page||curPage;const pool=exportPage==="staging"?STAGING:items;scope=pool.some(i=>state(i.id).status==="Failed")?"Failed":(exportPage==="staging"?"checked":"all");$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;$("#useStaging").checked=exportPage==="staging"||STAGING.some(i=>isTouched(i.id));$("#sN").textContent=STAGING.length;$("#onlyTouched").checked=true;$("#useF").checked=exportPage==="staging";$("#useFtxt").textContent=exportPage==="staging"?"Also apply my current staging search, module and priority filters":"Also apply my current search, module and priority filters";fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
+function refreshExp(){useF=$("#useF").checked;onlyTouched=$("#onlyTouched").checked;
+ const R=rows();$("#expCount").textContent=R.length+" item"+(R.length===1?"":"s")+" will be included";
+ ["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!R.length)}
+function drawScope(){useF=$("#useF").checked;onlyTouched=$("#onlyTouched").checked;
+ const pool=checklistPool(),counts={};STATUSES.forEach(([s])=>counts[s]=pool.filter(i=>state(i.id).status===s).length);
+ const total=pool.length,sel=pool.filter(i=>statusMatch(i.id)).length;
+ $("#scope").innerHTML=`<label class="chk"><input type="checkbox" id="stAll"${sel===total&&total>0?" checked":""}> All statuses <b>${total}</b></label>`+STATUSES.map(([s,l])=>`<label class="chk"><input type="checkbox" data-status="${esc(s)}"${statusSel[s]?" checked":""}> ${esc(l)} <b>${counts[s]}</b></label>`).join("");
+ const all=$("#stAll");if(all)all.indeterminate=sel>0&&sel<total;
+ $("#mN").textContent=items.length;$("#fN").textContent=FEAT.length;$("#lN").textContent=LAST.length;$("#dN").textContent=DEVELOP.length;$("#sN").textContent=STAGING.length;$("#findN").textContent=findings.length;
+ refreshExp()}
+function openExp(page){exportPage=page||curPage;
+ $("#expMsg").textContent="";
+ $("#useMain").checked=exportPage==="check";
+ $("#useFeat").checked=exportPage==="features";
+ $("#useLast").checked=exportPage==="lastweek";
+ $("#useDevelop").checked=exportPage==="develop";
+ $("#useStaging").checked=exportPage==="staging";
+ $("#useFindings").checked=findings.length>0;
+ const pool=exportPage==="staging"?STAGING:exportPage==="features"?FEAT:exportPage==="lastweek"?LAST:exportPage==="develop"?DEVELOP:items;
+ setStatusPreset(exportPage==="staging"&&pool.some(i=>["Failed","Blocked"].includes(state(i.id).status))?"attn":"all");
+ $("#onlyTouched").checked=true;
+ $("#useF").checked=exportPage==="staging";
+ $("#useFtxt").textContent=exportPage==="staging"?"Also apply my current staging search, module and priority filters":"Also apply my current search, module and priority filters";
+ fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
 const closeExp=()=>{$("#modal").hidden=true};
-async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent="";
+async function runExp(kind){const R=rows(),msg=$("#expMsg");msg.textContent="";
  try{
-  await loadAll(rows(list));if(kind==="print"){closeExp();printOut(list);return}
+  await loadAll(R);if(kind==="print"){closeExp();printOut(R);return}
   const base="Aspio_QA_"+slug()+"_"+meta().date;
-  const r=kind==="pdf"?await saveFile(base+".pdf",pdfOut(list),"application/pdf"):await saveFile(base+".csv",csvOut(list),"text/csv;charset=utf-8");
+  const r=kind==="pdf"?await saveFile(base+".pdf",pdfOut(R),"application/pdf"):await saveFile(base+".csv",csvOut(R),"text/csv;charset=utf-8");
   msg.textContent=r==="saved"?"Done. Your file is ready.":"Cancelled."
  }catch(e){msg.textContent="Couldn’t create the file: "+((e&&e.message)||"unknown error")}}
 $("#exp").onclick=()=>openExp("check");$("#mx").onclick=closeExp;
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeExp()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeExp()});
-$("#scope").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b){scope=b.dataset.sc;drawScope()}});
-$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;$("#useStaging").onchange=()=>drawScope();$("#onlyTouched").onchange=refreshExp;
+$("#scope").addEventListener("change",e=>{
+ if(e.target.id==="stAll"){const on=e.target.checked;STATUSES.forEach(([s])=>statusSel[s]=on);drawScope();return}
+ const b=e.target.closest("[data-status]");if(!b)return;statusSel[b.dataset.status]=b.checked;drawScope()});
+$("#statusPresets").addEventListener("click",e=>{const b=e.target.closest("[data-preset]");if(!b)return;setStatusPreset(b.dataset.preset);drawScope()});
+["useMain","useFeat","useLast","useDevelop","useStaging","useFindings","onlyTouched","useF"].forEach(id=>$("#"+id).addEventListener("change",drawScope));
+$("#allPages").onclick=()=>{["useMain","useFeat","useLast","useDevelop","useStaging","useFindings"].forEach(id=>$("#"+id).checked=true);drawScope()};
+$("#noPages").onclick=()=>{["useMain","useFeat","useLast","useDevelop","useStaging","useFindings"].forEach(id=>$("#"+id).checked=false);drawScope()};
+$("#expLabel").onchange=refreshExp;
 $("#goPdf").onclick=()=>runExp("pdf");$("#goCsv").onclick=()=>runExp("csv");$("#goPrint").onclick=()=>runExp("print");
 
-$("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render();sFilter="";renderStaging()}};
+$("#reset").onclick=()=>{if(!confirm("Reset all test statuses, notes, findings and screenshots saved in this browser? (Your label list is kept.)"))return;
+ [...Object.values(saved).flatMap(s=>s.imgs||[]),...findings.flatMap(b=>b.imgs||[])].forEach(imgDel);
+ saved={};store();findings=[];saveFindings();try{localStorage.removeItem("aspio-qa-extra");localStorage.removeItem("aspio-qa-fissues");localStorage.setItem(FINDMIG,"1")}catch(e){}fndFilters={};fndEdit=null;fndImgs=[];fndSel=[];closeFinding();
+ drawAllFindings();fillExpLabels();drawFeatList();render();sFilter="";renderStaging();renderLast();renderDevelop()};
 
 ["tester","build","date","decision","pmNotes","sUrl","sBuild","sTester","sDate","sDecision","sNotes"].forEach(id=>{const el=$("#"+id);try{el.value=localStorage.getItem("aspio-qa-"+id)||""}catch(e){}el.addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-"+id,el.value)}catch(e){}})});
 render();

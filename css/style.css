@@ -129,4 +129,12 @@ button.lab[aria-pressed="true"]{background:hsl(var(--h) 62% 42%);color:#fff;bord
 .tabs{overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 @media(max-width:640px){.tabs{width:100%;flex-wrap:wrap;overflow:visible}.tabs button{flex:1 1 auto;text-align:center}}
+.add-finding{margin-top:12px;background:var(--card);color:var(--pur)}
+.sheet.wide{max-width:680px}
+.chk-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.chk-grid .chk{margin-top:8px}
+.scope .chk{margin-top:0;white-space:nowrap}
+.scope .chk b{color:var(--ink);font-weight:700}
+.findings-block{margin-top:8px}
+@media(max-width:640px){.chk-grid{grid-template-columns:1fr}}
 
