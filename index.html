@@ -5,16 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aspio Business App | QA Checklist</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="data:,">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <header class="hero"><div class="wrap">
   <button class="theme" id="theme" type="button"></button>
-  <span class="pill">Main branch · Manual QA</span>
+  <span class="pill" id="heroPill">Main branch · Manual QA</span>
   <h1>Aspio Business App</h1>
   <p id="heroP">Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.</p>
-  <nav class="tabs" aria-label="Pages"><button type="button" data-tab="check" aria-selected="true">Main checklist</button><button type="button" data-tab="features" aria-selected="false">New features</button></nav>
+  <nav class="tabs" aria-label="Pages"><button type="button" data-tab="check" aria-selected="true">Main checklist</button><button type="button" data-tab="features" aria-selected="false">New features</button><button type="button" data-tab="staging" aria-selected="false">Staging release</button></nav>
   <button type="button" id="gotoLast" class="btn">Last week's changes</button>
   <button type="button" id="gotoDevelop" class="btn">Develop last week's changes</button>
 </div></header>
@@ -73,6 +74,56 @@
     <textarea id="pmNotes" style="min-height:90px" placeholder="Defect references, decisions, retest notes and outstanding risks…" aria-label="PM notes"></textarea>
   </section>
   <p class="foot">Aspio Business App QA checklist · Status and notes are stored locally in this browser.</p>
+</main>
+</div>
+<div id="pgStaging" hidden>
+<div class="bar"><div class="bar-in">
+  <div class="bar-top"><b id="spct">0%</b><span id="sdone"></span></div>
+  <div class="track" aria-hidden="true"><i id="sp" style="background:var(--pass)"></i><i id="sf" style="background:var(--fail)"></i><i id="sb" style="background:var(--blk)"></i><i id="sn" style="background:var(--na)"></i></div>
+  <div class="chips" id="schips"></div>
+</div></div>
+<main class="wrap">
+  <section class="panel">
+    <div class="lbl" style="margin-top:0">Staging release — test plan</div>
+    <p style="margin-top:0">Release diff <b>main...origin/staging</b>. Run the release-scope cases first, then the core smoke and cross-cutting checks. Tap <b>Pass</b> or <b>Fail</b> on each card; tick steps as you go.</p>
+    <div class="grid4">
+      <input class="field" id="sUrl" placeholder="Staging URL, e.g. https://…" aria-label="Staging URL">
+      <input class="field" id="sBuild" placeholder="Build / SHA" aria-label="Build or SHA">
+      <input class="field" id="sTester" placeholder="QA tester / PM name" aria-label="Staging tester">
+      <input class="field" id="sDate" type="date" aria-label="Staging test date">
+    </div>
+    <div class="row2" style="margin-top:8px">
+      <select class="field" id="sDecision" aria-label="Staging decision" style="max-width:320px"><option value="">Approval decision</option><option>Approved</option><option>Approved with known issues</option><option>Not approved</option><option>Retest required</option></select>
+    </div>
+    <textarea id="sNotes" style="min-height:70px;margin-top:8px" placeholder="Staging sign-off notes, known risks and defect references…" aria-label="Staging notes"></textarea>
+    <div class="row2">
+      <button class="btn" id="sNext" type="button">Next untested →</button>
+      <button class="btn sec" id="sExpand" type="button">Expand all</button>
+      <button class="btn sec" id="exp5" type="button">Export / Print…</button>
+      <button class="btn out" id="sReset" type="button">Reset staging only</button>
+    </div>
+    <p class="mut" style="margin-bottom:0" id="sMetaLine"></p>
+  </section>
+
+  <details class="note" style="margin-top:12px"><summary>Test data and accounts</summary>
+    <div id="sAccounts"></div>
+    <div class="lbl">Required data in Company A</div>
+    <ul id="sDataNeeds" class="stg-list"></ul>
+  </details>
+  <details class="note"><summary>Execution order</summary><ol id="sOrder" class="stg-list"></ol></details>
+
+  <div class="tools">
+    <input id="sq" type="search" placeholder="Search ID, module or test…" aria-label="Search staging tests">
+    <select id="smod" aria-label="Staging module"><option value="">All modules</option></select>
+    <select id="spri" aria-label="Staging priority"><option value="">All priorities</option><option>Critical</option><option>Medium</option><option>High</option></select>
+  </div>
+  <div style="color:var(--mut);font-size:12px"><span id="sshown"></span></div>
+
+  <div id="stagingList"></div>
+
+  <details class="note" style="margin-top:20px"><summary>Release sign-off checklist</summary><ul id="sSignoff" class="stg-list"></ul></details>
+  <details class="note"><summary>Known staging limitations and placeholders</summary><ul id="sLimits" class="stg-list"></ul></details>
+  <p class="foot">Staging release page · Results are saved locally in this browser and included in exports.</p>
 </main>
 </div>
 <div id="pgFeat" hidden>
@@ -149,11 +200,13 @@
   <div class="sh-h"><h2 id="mt">Export or print a report</h2><button class="x" id="mx" type="button" aria-label="Close">✕</button></div>
   <div class="lbl">1 · Which tests?</div>
   <div class="scope" id="scope"></div>
-  <label class="chk"><input type="checkbox" id="useF"> Also apply my current search, module and priority filters</label>
+  <label class="chk"><input type="checkbox" id="useF"> <span id="useFtxt">Also apply my current search, module and priority filters</span></label>
   <label class="chk"><input type="checkbox" id="useX" checked> Include the other bugs I logged (<span id="xN">0</span>)</label>
   <label class="chk"><input type="checkbox" id="useFeat" checked> Include the New features page (<span id="fN">0</span> checks, <span id="fiN">0</span> logged items)</label>
   <label class="chk"><input type="checkbox" id="useLast"> Include Last week's changes page (<span id="lN">0</span> cards)</label>
   <label class="chk"><input type="checkbox" id="useDevelop"> Include Develop branch page (<span id="dN">0</span> cards)</label>
+  <label class="chk"><input type="checkbox" id="useStaging"> Include the Staging release page (<span id="sN">0</span> cases)</label>
+  <label class="chk"><input type="checkbox" id="onlyTouched" checked> Only include cases I've worked on (status, step, note or screenshot)</label>
   <div class="chk">Only logged items with label: <select id="expLabel" class="field" style="width:auto;padding:4px 8px" aria-label="Label filter"><option value="">Any label</option></select></div>
   <div class="count" id="expCount"></div>
   <div class="lbl">2 · Format</div>
@@ -162,6 +215,7 @@
 </div></div>
 <div class="lb" id="lb" hidden><img id="lbimg" alt="Screenshot enlarged"></div>
 <div id="printArea"></div>
+<script src="js/staging-data.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

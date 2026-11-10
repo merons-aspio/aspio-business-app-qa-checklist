@@ -7,14 +7,17 @@ const state=id=>saved[id]||{status:"Not tested",notes:"",done:[]};
 const put=(id,p)=>{saved[id]={...state(id),...p};store()};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=s=>document.querySelector(s);
-const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList"),$("#developList")].forEach(L=>L.addEventListener(t,fn));
+const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList"),$("#developList"),$("#stagingList")].forEach(L=>L.addEventListener(t,fn));
 const GRP=["Release sign-off","A · Basic functionality","B · Business workflows"],GSUB=["Complete these 12 checks before approving","Core screens and features","End-to-end flows across modules"];
 const items=[...DATA.critical.map(c=>({id:c[0],module:c[1],check:c[2],steps:c[3],expected:c[4],priority:"Critical",grp:0})),...DATA.cases.map(c=>({...c,grp:c.id.startsWith("QF-A")?1:2}))];
-const stepsOf=s=>String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
+const STAGING=(window.STAGING_DATA&&window.STAGING_DATA.cases)||[];
+const STAGING_META=(window.STAGING_DATA&&window.STAGING_DATA.meta)||{};
+const SGROUPS=["Critical","Medium","Core smoke","Cross-cutting"];
+const stepsOf=s=>Array.isArray(s)?s.map(x=>String(x).trim()).filter(Boolean):String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
 let f={s:""},curPage="check",useLast=false,useDevelop=false;
 function card(it){const st=state(it.id),steps=stepsOf(it.steps);
  return `<article class="card" data-id="${esc(it.id)}" data-s="${st.status}"><div class="head" tabindex="0" role="button" aria-expanded="false"><div><span class="id">${esc(it.id)}</span><div class="title">${esc(it.check)}</div><div class="meta"><span>${esc(it.module)}</span><span class="pr ${esc(it.priority)}">${esc(it.priority)}</span><span class="sp"></span></div></div><div class="seg">${ST.map(s=>`<button data-st="${s}" class="${st.status===s?"on":""}" aria-label="${s}" title="${s}">${LBL[s]}</button>`).join("")}</div></div>
- <div class="body"><div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a defect ID or evidence link. You can also paste a screenshot here (Ctrl/Cmd+V).">${esc(st.notes)}</textarea><div class="shots">${thumbs(st.imgs||[])}</div><div class="shotbar"><span>Paste a screenshot with Ctrl/Cmd+V, or</span><label class="btn sec sm">Add image<input type="file" accept="image/*" multiple hidden></label></div></div></article>`}
+ <div class="body">${it.pre?`<div class="lbl">Preconditions</div><div class="exp">${esc(it.pre)}</div>`:""}<div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a defect ID or evidence link. You can also paste a screenshot here (Ctrl/Cmd+V).">${esc(st.notes)}</textarea><div class="shots">${thumbs(st.imgs||[])}</div><div class="shotbar"><span>Paste a screenshot with Ctrl/Cmd+V, or</span><label class="btn sec sm">Add image<input type="file" accept="image/*" multiple hidden></label></div></div></article>`}
 function render(){
  if(curPage==="lastweek"){renderLast();return}
  if(curPage==="develop"){renderDevelop();return}
@@ -64,7 +67,7 @@ function dNext(from){let n=from?from.nextElementSibling:document.querySelector("
  if(!n&&from){return from.parentElement.id==="developList"?dNext(null):void 0}
  if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All develop checks are done. Nice work!")}
 onLists("click",e=>{const el=e.target.closest(".card");if(!el)return;const b=e.target.closest("[data-st]");
- if(b){if(el.closest("#developList")){setDevelopStatus(el,b.dataset.st);return}if(el.closest("#lastList")){setLastStatus(el,b.dataset.st);return}setStatus(el,b.dataset.st);return}
+ if(b){if(el.closest("#developList")){setDevelopStatus(el,b.dataset.st);return}if(el.closest("#lastList")){setLastStatus(el,b.dataset.st);return}if(el.closest("#stagingList")){setStagingStatus(el,b.dataset.st);return}setStatus(el,b.dataset.st);return}
  if(e.target.closest(".body"))return;open(el,!el.classList.contains("open"))});
 onLists("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("head")){e.preventDefault();const el=e.target.closest(".card");open(el,!el.classList.contains("open"))}});
 onLists("change",e=>{if(!e.target.matches(".step input"))return;const el=e.target.closest(".card"),id=el.dataset.id,i=+e.target.dataset.i;
@@ -245,8 +248,50 @@ function renderDevelop(){
  }
  $("#developList").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
  document.querySelectorAll("#developList .card").forEach(refreshCard);dstats();fillThumbs($("#developList"))}
+/* ===== Staging release page ===== */
+let sFilter="",sAll=false;
+const stagingFiltered=()=>{const q=($("#sq").value||"").toLowerCase(),m=$("#smod").value,p=$("#spri").value;
+ return STAGING.filter(c=>(!q||[c.id,c.module,c.check,c.group].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p)&&(!sFilter||state(c.id).status===sFilter))};
+function sstats(){const c={};STAGING.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});
+ const T=STAGING.length,dn=T-(c["Not tested"]||0);
+ $("#spct").textContent=Math.round(dn/T*100)+"%";$("#sdone").textContent=dn+" of "+T+" tested";
+ [["sp","Passed"],["sf","Failed"],["sb","Blocked"],["sn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%");
+ const defs=[["","All",T,"var(--pur)"],["Not tested","To do",c["Not tested"]||0,"var(--line)"],["Passed","Passed",c.Passed||0,"var(--pass)"],["Failed","Failed",c.Failed||0,"var(--fail)"],["Blocked","Blocked",c.Blocked||0,"var(--blk)"]];
+ $("#schips").innerHTML=defs.map(d=>`<button class="chip" data-f="${d[0]}" aria-pressed="${sFilter===d[0]}"><span class="dotc" style="background:${d[3]}"></span>${d[1]} <b>${d[2]}</b></button>`).join("")}
+function renderStaging(){
+ const list=stagingFiltered();$("#sshown").textContent=list.length+" of "+STAGING.length+" shown";
+ let h="";
+ SGROUPS.forEach(g=>{const a=list.filter(c=>c.group===g);if(a.length)h+=`<div class="gh"><div><h2>${esc(g)}</h2></div><span>${a.length} case${a.length===1?"":"s"}</span></div>`+a.map(card).join("")});
+ $("#stagingList").innerHTML=h||'<div class="empty">No staging cases match these filters.</div>';
+ document.querySelectorAll("#stagingList .card").forEach(refreshCard);sstats();fillThumbs($("#stagingList"))}
+function setStagingStatus(el,s){const id=el.dataset.id,was=el.classList.contains("open"),cur=state(id).status,next=cur===s?"Not tested":s;
+ put(id,{status:next});refreshCard(el);sstats();
+ if(next==="Failed"){open(el,true);const t=el.querySelector("textarea");t.focus({preventScroll:true})}
+ else if(next==="Passed"&&was){open(el,false);sNext(el)}}
+function sNext(from){let n=from?from.nextElementSibling:document.querySelector("#stagingList .card");
+ for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
+ if(!n&&from){return from.parentElement.id==="stagingList"?sNext(null):void 0}
+ if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All staging checks are done. Nice work!")}
+function fillStagingStatic(){
+ const D=window.STAGING_DATA||{},acc=D.accounts||[];
+ $("#sAccounts").innerHTML=acc.length?`<table class="stg-table"><thead><tr><th>ID</th><th>Role</th><th>Company</th><th>Notes</th></tr></thead><tbody>${acc.map(a=>`<tr><td><b>${esc(a.id)}</b></td><td>${esc(a.role)}</td><td>${esc(a.company)}</td><td>${esc(a.notes)}</td></tr>`).join("")}</tbody></table>`:"";
+ $("#sDataNeeds").innerHTML=(D.dataNeeds||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+ $("#sOrder").innerHTML=(D.executionOrder||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+ $("#sSignoff").innerHTML=(D.signoff||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+ $("#sLimits").innerHTML=(D.limitations||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+ if($("#smod").options.length<=1)[...new Set(STAGING.map(c=>c.module))].sort().forEach(m=>{const o=document.createElement("option");o.textContent=m;$("#smod").appendChild(o)});
+ $("#sMetaLine").textContent="Build under test: "+(STAGING_META.build||"origin/staging")+(STAGING_META.note?" · "+STAGING_META.note:"")}
+["#sq","#smod","#spri"].forEach(s=>$(s).addEventListener("input",renderStaging));
+$("#schips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;sFilter=sFilter===b.dataset.f?"":b.dataset.f;renderStaging()});
+$("#sNext").onclick=()=>sNext(null);
+$("#sExpand").onclick=()=>{sAll=!sAll;document.querySelectorAll("#stagingList .card").forEach(c=>open(c,sAll));$("#sExpand").textContent=sAll?"Collapse all":"Expand all"};
+$("#exp5").onclick=()=>openExp("staging");
+$("#sReset").onclick=()=>{if(!confirm("Reset all staging results, notes and screenshots saved in this browser? Other pages are kept."))return;
+ const ids=new Set(STAGING.map(c=>c.id));
+ Object.keys(saved).filter(id=>ids.has(id)).forEach(id=>{const imgs=(saved[id]&&saved[id].imgs)||[];imgs.forEach(imgDel);delete saved[id]});
+ store();sFilter="";renderStaging()};
 $("#fNext").onclick=()=>{const n=document.querySelector('#featList .card[data-s="Not tested"]');if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else alert("All feature checks are done. Nice work!")};
-$("#exp2").onclick=()=>openExp();
+$("#exp2").onclick=()=>openExp("features");
 try{$("#fName").value=localStorage.getItem("aspio-qa-fname")||""}catch(e){}
 $("#fName").addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-fname",$("#fName").value)}catch(e){}});
 
@@ -302,53 +347,64 @@ $("#fiPanel").addEventListener("paste",e=>{const p=pastedImages(e);if(!p.files.l
 $("#fiFile").onchange=async e=>{const f=[...e.target.files];e.target.value="";await fiAttach(f)};
 /* export hooks */
 const fOn=()=>$("#useFeat").checked;
-const frows=()=>{const fn=SCOPES.find(s=>s[0]===scope)[2],lab=$("#expLabel").value;
- const c=FEAT.filter(i=>fn(state(i.id).status)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"New feature checklist",imgs:state(i.id).imgs||[],labels:[]}));
+const frows=()=>{const lab=$("#expLabel").value;
+ const c=FEAT.filter(i=>scopeMatch(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"New feature checklist",imgs:state(i.id).imgs||[],labels:[]}));
  const q=fIssues.map((b,i)=>({b,i})).filter(o=>!lab||o.b.labels.includes(lab)).map(({b,i})=>({id:"ISSUE-"+(i+1),module:"New feature issue",check:b.title,priority:b.sev,status:"Issue",steps:[],expected:"",nlabel:"DETAILS",notes:[b.details,b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"New feature issues",imgs:b.imgs||[],labels:b.labels||[]}));
  return [...c,...q]};
-const lrows=()=>LAST.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
-const drows=()=>DEVELOP.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
+const lrows=()=>LAST.filter(i=>scopeMatch(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
+const drows=()=>DEVELOP.filter(i=>scopeMatch(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
+const srows=()=>{let list=STAGING.filter(c=>scopeMatch(c.id));
+ if(useF&&exportPage==="staging"){const q=$("#sq").value.toLowerCase(),m=$("#smod").value,p=$("#spri").value;
+  list=list.filter(c=>(!q||[c.id,c.module,c.check,c.group].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))}
+ if(onlyTouched&&(scope==="all"||scope==="checked"))list=list.filter(c=>isTouched(c.id));
+ return list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,pre:c.pre||"",notes:(state(c.id).notes||"").trim(),group:"Staging release · "+c.group,imgs:state(c.id).imgs||[],labels:[]}))};
 function fillExpLabels(){const u=[...new Set(fIssues.flatMap(b=>b.labels))].sort(),el=$("#expLabel");el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("")}
 $("#useFeat").onchange=()=>drawScope();$("#expLabel").onchange=()=>refreshExp();
 /* tabs */
 function showPage(p){curPage=p;
  $("#pgCheck").hidden=p!=="check";
  $("#pgFeat").hidden=p!=="features";
+ $("#pgStaging").hidden=p!=="staging";
  $("#pgLast").hidden=p!=="lastweek";
  $("#pgDevelop").hidden=p!=="develop";
  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===p)));
- $("#heroP").innerHTML=p==="features"?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week’s changes — run the tracked test cards for changes landing on main.":p==="develop"?"Develop branch — run the tracked test cards for origin/develop.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
+ $("#heroPill").textContent=p==="features"?"New features · Manual QA":p==="staging"?"Staging release · Manual QA":p==="lastweek"?"Last week's changes · Manual QA":p==="develop"?"Develop branch · Manual QA":"Main branch · Manual QA";
+ $("#heroP").innerHTML=p==="features"?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":p==="staging"?"Staging release — run the release-scope cases, then smoke and cross-cutting checks. Export only what you filtered or worked on.":p==="lastweek"?"Last week’s changes — run the tracked test cards for changes landing on main.":p==="develop"?"Develop branch — run the tracked test cards for origin/develop.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
  window.scrollTo({top:0});
- if(p==="check")render();else if(p==="features")drawFeatList();else if(p==="lastweek")renderLast();else renderDevelop()}
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;try{location.hash=t==="features"?"features":"check"}catch(e){}showPage(t)});
+ if(p==="check")render();else if(p==="features")drawFeatList();else if(p==="staging")renderStaging();else if(p==="lastweek")renderLast();else renderDevelop()}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;try{location.hash=t==="check"?"checklist":t}catch(e){}showPage(t)});
 $("#gotoLast").onclick=()=>{try{location.hash="#lastweek"}catch(e){}showPage("lastweek")};
 $("#gotoDevelop").onclick=()=>{try{location.hash="#develop"}catch(e){}showPage("develop")};
 $("#backToCheck").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
 $("#backToDevelop").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
 $("#lNext").onclick=()=>lNext(null);
 $("#dNext").onclick=()=>dNext(null);
-$("#exp3").onclick=()=>openExp();
-$("#exp4").onclick=()=>openExp();
-window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#lastweek"?"lastweek":h==="#develop"?"develop":"check")});
-drawFeatList();drawFeat();showPage(location.hash==="#features"?"features":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":"check");
+$("#exp3").onclick=()=>openExp("lastweek");
+$("#exp4").onclick=()=>openExp("develop");
+window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#staging"?"staging":h==="#lastweek"?"lastweek":h==="#develop"?"develop":"check")});
+drawFeatList();drawFeat();fillStagingStatic();showPage(location.hash==="#features"?"features":location.hash==="#staging"?"staging":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":"check");
 /* ===== Export / print ===== */
-const SCOPES=[["all","All tests",()=>true],["Not tested","Not tested",s=>s==="Not tested"],["Passed","Passed",s=>s==="Passed"],["Failed","Failed",s=>s==="Failed"],["Blocked","Blocked",s=>s==="Blocked"],["attn","Failed + Blocked",s=>s==="Failed"||s==="Blocked"],["Not applicable","N/A",s=>s==="Not applicable"]];
-let scope="all",useF=false;
+const isTouched=id=>{const st=state(id);return st.status!=="Not tested"||(st.done||[]).length>0||!!(st.notes||"").trim()||(st.imgs||[]).length>0};
+const SCOPES=[["all","All tests",()=>true],["checked","Checked only",(s,id)=>isTouched(id)],["Not tested","Not tested",s=>s==="Not tested"],["Passed","Passed",s=>s==="Passed"],["Failed","Failed",s=>s==="Failed"],["Blocked","Blocked",s=>s==="Blocked"],["attn","Failed + Blocked",s=>s==="Failed"||s==="Blocked"],["Not applicable","N/A",s=>s==="Not applicable"]];
+let scope="all",useF=false,useStaging=false,onlyTouched=true,exportPage="check";
 const scopeName=()=>SCOPES.find(s=>s[0]===scope)[1];
-function scoped(){const fn=SCOPES.find(s=>s[0]===scope)[2],q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
- return items.filter(c=>fn(state(c.id).status)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
-const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
-const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[])];
-const meta=()=>({feature:$("#fName").value.trim(),tester:$("#tester").value.trim(),build:$("#build").value.trim(),decision:$("#decision").value,date:$("#date").value||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")});
+const scopeMatch=id=>{const s=SCOPES.find(x=>x[0]===scope);return s[2](state(id).status,id)};
+function scoped(){const q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
+ return items.filter(c=>scopeMatch(c.id)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
+const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,pre:c.pre||"",notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
+const rows=list=>[...(exportPage==="staging"?[]:baseRows(list)),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[]),...(useStaging?srows():[])];
+const meta=()=>{const stg=exportPage==="staging";
+ return {feature:stg?"Staging release":$("#fName").value.trim(),tester:stg?$("#sTester").value.trim():$("#tester").value.trim(),build:stg?($("#sBuild").value.trim()||STAGING_META.build||""):$("#build").value.trim(),decision:stg?$("#sDecision").value:$("#decision").value,date:(stg?$("#sDate").value:$("#date").value)||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")}};
 const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"");
-function summaryText(){const c={};items.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});
- return "Overall: "+items.length+" tests - "+(c.Passed||0)+" passed, "+(c.Failed||0)+" failed, "+(c.Blocked||0)+" blocked, "+(c["Not applicable"]||0)+" N/A, "+(c["Not tested"]||0)+" not tested"}
+function summaryText(R){const c={};R.forEach(x=>{c[x.status]=(c[x.status]||0)+1});
+ const known=(c.Passed||0)+(c.Failed||0)+(c.Blocked||0)+(c["Not applicable"]||0)+(c["Not tested"]||0),other=R.length-known;
+ return "Included: "+R.length+" item"+(R.length===1?"":"s")+" - "+(c.Passed||0)+" passed, "+(c.Failed||0)+" failed, "+(c.Blocked||0)+" blocked, "+(c["Not applicable"]||0)+" N/A, "+(c["Not tested"]||0)+" not tested"+(other?" + "+other+" logged item"+(other===1?"":"s"):"")}
 async function saveFile(name,data,type){
  let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null}catch(e){}
  if(dl){try{await dl.save({filename:name,data});return "saved"}catch(e){if(e&&e.code==="declined")return "declined";throw e}}
  const a=document.createElement("a");a.href=URL.createObjectURL(data instanceof Blob?data:new Blob([data],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);return "saved"}
-function csvOut(list){const r=[["ID","Section","Module","Test","Priority","Status","Steps","Expected result","Notes","Screenshots","Labels"]];
- rows(list).forEach(x=>r.push([x.id,x.group,x.module,x.check,x.priority,x.status,x.steps.join(" | "),x.expected,x.notes,(x.imgs||[]).length?x.imgs.length+" attached (see PDF)":"",(x.labels||[]).join("; ")]));
+function csvOut(list){const r=[["ID","Section","Module","Test","Priority","Status","Preconditions","Steps","Expected result","Notes","Screenshots","Labels"]];
+ rows(list).forEach(x=>r.push([x.id,x.group,x.module,x.check,x.priority,x.status,x.pre||"",x.steps.join(" | "),x.expected,x.notes,(x.imgs||[]).length?x.imgs.length+" attached (see PDF)":"",(x.labels||[]).join("; ")]));
  return "\uFEFF"+r.map(x=>x.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\r\n")}
 const safe=s=>String(s??"").replace(/→/g,">").replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/[–—·]/g,"-").replace(/…/g,"...").split("").map(ch=>ch.charCodeAt(0)>255?"":ch).join("");
 function pdfOut(list){
@@ -361,9 +417,9 @@ function pdfOut(list){
  d.setTextColor(255,255,255);d.setFont("helvetica","bold");d.setFontSize(21);d.text("Aspio Business App",M,42);
  d.setFont("helvetica","normal");d.setFontSize(11);d.text(safe("QA test report  -  Scope: "+m.scope+(m.feature?"  -  Feature: "+m.feature:"")),M,64);
  d.setFontSize(9);d.text(safe(m.date+(m.tester?"   |   Tester: "+m.tester:"")+(m.build?"   |   Build: "+m.build:"")),M,80);
- y=110;tx(summaryText(),{sz:9.5,c:[90,80,110]});
+ y=110;tx(summaryText(R),{sz:9.5,c:[90,80,110]});
  if(m.decision)tx("Release decision: "+m.decision,{sz:10,b:1});
- tx(list.length+" test"+(list.length===1?"":"s")+(R.length>list.length?" + "+(R.length-list.length)+" other bug"+(R.length-list.length===1?"":"s"):"")+" in this report",{sz:10,b:1,gap:6});
+ tx(R.length+" item"+(R.length===1?"":"s")+" in this report",{sz:10,b:1,gap:6});
  d.setDrawColor(228,220,240);d.line(M,y,W-M,y);y+=14;
  R.forEach(x=>{
   if(y+120>H-M){d.addPage();y=M}
@@ -372,6 +428,7 @@ function pdfOut(list){
   d.setTextColor(255,255,255);d.setFont("helvetica","bold");d.setFontSize(7.5);d.text(x.status==="Not applicable"?"N/A":x.status.toUpperCase(),W-M-37,y+9.5,{align:"center"});
   tx(x.id+"   "+x.module+"  -  "+x.priority,{sz:9,b:1,c:[109,0,204],w:CW-84});
   tx(x.check,{sz:11.5,b:1,gap:(x.labels||[]).length?0:4});if((x.labels||[]).length)tx("Labels: "+x.labels.join(", "),{sz:8.5,c:[109,0,204],gap:4});
+  if(x.pre){tx("PRECONDITIONS",{sz:7.5,b:1,c:[120,110,140]});tx(x.pre,{sz:9.5,gap:4})}
   if(x.expected){tx("EXPECTED RESULT",{sz:7.5,b:1,c:[120,110,140]});tx(x.expected,{sz:9.5,gap:4})}
   if(x.steps.length){tx("STEPS",{sz:7.5,b:1,c:[120,110,140]});x.steps.forEach((s,i)=>tx((i+1)+". "+s,{sz:9.5,x:M+8}));y+=4}
   tx(x.nlabel||"ACTUAL RESULT / NOTES",{sz:7.5,b:1,c:[120,110,140]});
@@ -384,15 +441,16 @@ function pdfOut(list){
  return d.output("blob")}
 function printOut(list){
  const m=meta(),R=rows(list);
- $("#printArea").innerHTML=`<h1>Aspio Business App · QA test report</h1><p class="pm">Scope: <b>${esc(m.scope)}</b>${m.feature?" · Feature: <b>"+esc(m.feature)+"</b>":""} · ${list.length} test${list.length===1?"":"s"}${R.length>list.length?" + "+(R.length-list.length)+" other bug"+(R.length-list.length===1?"":"s"):""} · ${esc(m.date)}${m.tester?" · Tester: "+esc(m.tester):""}${m.build?" · Build: "+esc(m.build):""}${m.decision?" · Decision: "+esc(m.decision):""}</p><p class="pm">${esc(summaryText())}</p>`+
- R.map(x=>`<section class="pi s-${x.status.replace(/ /g,"_")}"><div class="ph"><b>${esc(x.id)}</b><span>${esc(x.module)} · ${esc(x.priority)}</span><em>${esc(x.status)}</em></div><h3>${esc(x.check)}</h3>${(x.labels||[]).length?`<div class="pl">Labels: ${esc(x.labels.join(", "))}</div>`:""}${x.expected?`<div class="pl">Expected result</div><p>${esc(x.expected)}</p>`:""}${x.steps.length?`<div class="pl">Steps</div><ol>${x.steps.map(s=>"<li>"+esc(s)+"</li>").join("")}</ol>`:""}<div class="pl">${esc(x.nlabel||"Actual result / notes")}</div><p>${x.notes?esc(x.notes):"<i>No notes recorded</i>"}</p>${(x.imgs||[]).map(id=>imgCache[id]).filter(Boolean).map(o=>`<img class="pimg" src="${o.url}" alt="Screenshot">`).join("")}</section>`).join("");
+ $("#printArea").innerHTML=`<h1>Aspio Business App · QA test report</h1><p class="pm">Scope: <b>${esc(m.scope)}</b>${m.feature?" · Feature: <b>"+esc(m.feature)+"</b>":""} · ${R.length} item${R.length===1?"":"s"} · ${esc(m.date)}${m.tester?" · Tester: "+esc(m.tester):""}${m.build?" · Build: "+esc(m.build):""}${m.decision?" · Decision: "+esc(m.decision):""}</p><p class="pm">${esc(summaryText(R))}</p>`+
+ R.map(x=>`<section class="pi s-${x.status.replace(/ /g,"_")}"><div class="ph"><b>${esc(x.id)}</b><span>${esc(x.module)} · ${esc(x.priority)}</span><em>${esc(x.status)}</em></div><h3>${esc(x.check)}</h3>${(x.labels||[]).length?`<div class="pl">Labels: ${esc(x.labels.join(", "))}</div>`:""}${x.pre?`<div class="pl">Preconditions</div><p>${esc(x.pre)}</p>`:""}${x.expected?`<div class="pl">Expected result</div><p>${esc(x.expected)}</p>`:""}${x.steps.length?`<div class="pl">Steps</div><ol>${x.steps.map(s=>"<li>"+esc(s)+"</li>").join("")}</ol>`:""}<div class="pl">${esc(x.nlabel||"Actual result / notes")}</div><p>${x.notes?esc(x.notes):"<i>No notes recorded</i>"}</p>${(x.imgs||[]).map(id=>imgCache[id]).filter(Boolean).map(o=>`<img class="pimg" src="${o.url}" alt="Screenshot">`).join("")}</section>`).join("");
  document.body.classList.add("printing");
  const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done)};
  window.addEventListener("afterprint",done);
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,1500)},60)}
-function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0)+(useDevelop?drows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
-function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST,...DEVELOP].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
-function openExp(){scope=[...items,...FEAT,...LAST,...DEVELOP].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
+function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;useStaging=$("#useStaging").checked;onlyTouched=$("#onlyTouched").checked;const n=rows(scoped()).length;$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
+function drawScope(){useF=$("#useF").checked;useStaging=$("#useStaging").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;onlyTouched=$("#onlyTouched").checked;const pool=[...(exportPage==="staging"?[]:items),...(fOn()?FEAT:[]),...(useLast?LAST:[]),...(useDevelop?DEVELOP:[]),...(useStaging?STAGING:[])];
+ $("#scope").innerHTML=SCOPES.map(s=>{const n=pool.filter(i=>s[2](state(i.id).status,i.id)).length;return `<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${n}</b></button>`}).join("");refreshExp()}
+function openExp(page){exportPage=page||curPage;const pool=exportPage==="staging"?STAGING:items;scope=pool.some(i=>state(i.id).status==="Failed")?"Failed":(exportPage==="staging"?"checked":"all");$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;$("#useStaging").checked=exportPage==="staging"||STAGING.some(i=>isTouched(i.id));$("#sN").textContent=STAGING.length;$("#onlyTouched").checked=true;$("#useF").checked=exportPage==="staging";$("#useFtxt").textContent=exportPage==="staging"?"Also apply my current staging search, module and priority filters":"Also apply my current search, module and priority filters";fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
 const closeExp=()=>{$("#modal").hidden=true};
 async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent="";
  try{
@@ -401,15 +459,15 @@ async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent
   const r=kind==="pdf"?await saveFile(base+".pdf",pdfOut(list),"application/pdf"):await saveFile(base+".csv",csvOut(list),"text/csv;charset=utf-8");
   msg.textContent=r==="saved"?"Done. Your file is ready.":"Cancelled."
  }catch(e){msg.textContent="Couldn’t create the file: "+((e&&e.message)||"unknown error")}}
-$("#exp").onclick=openExp;$("#mx").onclick=closeExp;
+$("#exp").onclick=()=>openExp("check");$("#mx").onclick=closeExp;
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeExp()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeExp()});
 $("#scope").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b){scope=b.dataset.sc;drawScope()}});
-$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;
+$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;$("#useStaging").onchange=()=>drawScope();$("#onlyTouched").onchange=refreshExp;
 $("#goPdf").onclick=()=>runExp("pdf");$("#goCsv").onclick=()=>runExp("csv");$("#goPrint").onclick=()=>runExp("print");
 
-$("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render()}};
+$("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render();sFilter="";renderStaging()}};
 
-["tester","build","date","decision","pmNotes"].forEach(id=>{const el=$("#"+id);try{el.value=localStorage.getItem("aspio-qa-"+id)||""}catch(e){}el.addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-"+id,el.value)}catch(e){}})});
+["tester","build","date","decision","pmNotes","sUrl","sBuild","sTester","sDate","sDecision","sNotes"].forEach(id=>{const el=$("#"+id);try{el.value=localStorage.getItem("aspio-qa-"+id)||""}catch(e){}el.addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-"+id,el.value)}catch(e){}})});
 render();
 

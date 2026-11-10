@@ -120,4 +120,13 @@ button.lab[aria-pressed="true"]{background:hsl(var(--h) 62% 42%);color:#fff;bord
 .chips.wrap{flex-wrap:wrap;overflow:visible}
 .mut{color:var(--mut);font-size:13px}
 .pi.s-Issue{border-left-color:#6d00cc}
+.stg-list{margin:6px 0 0;padding-left:22px;color:var(--mut);font-size:13px}
+.stg-list li{margin:5px 0}
+.stg-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+.stg-table th,.stg-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.stg-table th{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.exp,.step span{white-space:pre-line}
+.tabs{overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+@media(max-width:640px){.tabs{width:100%;flex-wrap:wrap;overflow:visible}.tabs button{flex:1 1 auto;text-align:center}}
 
