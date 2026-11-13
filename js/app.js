@@ -7,11 +7,11 @@ const state=id=>saved[id]||{status:"Not tested",notes:"",done:[]};
 const put=(id,p)=>{saved[id]={...state(id),...p};store()};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=s=>document.querySelector(s);
-const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList"),$("#developList")].forEach(L=>L.addEventListener(t,fn));
+const onLists=(t,fn)=>[$("#list"),$("#featList"),$("#lastList"),$("#developList"),$("#marketplaceList")].forEach(L=>L.addEventListener(t,fn));
 const GRP=["Release sign-off","A · Basic functionality","B · Business workflows"],GSUB=["Complete these 12 checks before approving","Core screens and features","End-to-end flows across modules"];
 const items=[...DATA.critical.map(c=>({id:c[0],module:c[1],check:c[2],steps:c[3],expected:c[4],priority:"Critical",grp:0})),...DATA.cases.map(c=>({...c,grp:c.id.startsWith("QF-A")?1:2}))];
 const stepsOf=s=>String(s||"").split(/(?:^|\s)\d+\.\s+/).map(x=>x.trim().replace(/\.$/,"")).filter(Boolean);
-let f={s:""},curPage="check",useLast=false,useDevelop=false;
+let f={s:""},mf={s:""},curPage="check",useLast=false,useDevelop=false,useMarketplace=false;
 function card(it){const st=state(it.id),steps=stepsOf(it.steps);
  return `<article class="card" data-id="${esc(it.id)}" data-s="${st.status}"><div class="head" tabindex="0" role="button" aria-expanded="false"><div><span class="id">${esc(it.id)}</span><div class="title">${esc(it.check)}</div><div class="meta"><span>${esc(it.module)}</span><span class="pr ${esc(it.priority)}">${esc(it.priority)}</span><span class="sp"></span></div></div><div class="seg">${ST.map(s=>`<button data-st="${s}" class="${st.status===s?"on":""}" aria-label="${s}" title="${s}">${LBL[s]}</button>`).join("")}</div></div>
  <div class="body"><div class="lbl">Expected result</div><div class="exp">${esc(it.expected)}</div><div class="lbl">Steps</div>${steps.map((x,i)=>`<label class="step"><input type="checkbox" data-i="${i}" ${(st.done||[]).includes(i)?"checked":""}><span>${esc(x)}</span></label>`).join("")}<div class="lbl">Actual result / evidence / defect ID</div><textarea placeholder="What happened? Add a defect ID or evidence link. You can also paste a screenshot here (Ctrl/Cmd+V).">${esc(st.notes)}</textarea><div class="shots">${thumbs(st.imgs||[])}</div><div class="shotbar"><span>Paste a screenshot with Ctrl/Cmd+V, or</span><label class="btn sec sm">Add image<input type="file" accept="image/*" multiple hidden></label></div></div></article>`}
@@ -64,14 +64,16 @@ function dNext(from){let n=from?from.nextElementSibling:document.querySelector("
  if(!n&&from){return from.parentElement.id==="developList"?dNext(null):void 0}
  if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All develop checks are done. Nice work!")}
 onLists("click",e=>{const el=e.target.closest(".card");if(!el)return;const b=e.target.closest("[data-st]");
- if(b){if(el.closest("#developList")){setDevelopStatus(el,b.dataset.st);return}if(el.closest("#lastList")){setLastStatus(el,b.dataset.st);return}setStatus(el,b.dataset.st);return}
+ if(b){if(el.closest("#developList")){setDevelopStatus(el,b.dataset.st);return}if(el.closest("#lastList")){setLastStatus(el,b.dataset.st);return}if(el.closest("#marketplaceList")){setMarketplaceStatus(el,b.dataset.st);return}setStatus(el,b.dataset.st);return}
  if(e.target.closest(".body"))return;open(el,!el.classList.contains("open"))});
 onLists("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList.contains("head")){e.preventDefault();const el=e.target.closest(".card");open(el,!el.classList.contains("open"))}});
 onLists("change",e=>{if(!e.target.matches(".step input"))return;const el=e.target.closest(".card"),id=el.dataset.id,i=+e.target.dataset.i;
  const d=new Set(state(id).done||[]);e.target.checked?d.add(i):d.delete(i);put(id,{done:[...d]});refreshCard(el)});
 onLists("input",e=>{if(!e.target.matches("textarea"))return;const el=e.target.closest(".card");put(el.dataset.id,{notes:e.target.value});refreshCard(el)});
 $("#chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;f.s=f.s===b.dataset.f?"":b.dataset.f;render()});
+$("#mchips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;mf.s=mf.s===b.dataset.mf?"":b.dataset.mf;renderMarketplace()});
 ["#q","#mod","#pri"].forEach(s=>$(s).addEventListener("input",render));
+["#mq","#mmod","#mpri"].forEach(s=>$(s).addEventListener("input",renderMarketplace));
 [...new Set(DATA.cases.map(c=>c.module))].sort().forEach(m=>{const o=document.createElement("option");o.textContent=m;$("#mod").appendChild(o)});
 const root=document.documentElement;
 function applyTheme(t){root.dataset.theme=t;$("#theme").textContent=t==="dark"?"☀ Light mode":"☾ Dark mode";$("#theme").setAttribute("aria-label","Switch to "+(t==="dark"?"light":"dark")+" mode")}
@@ -116,7 +118,6 @@ try{extra=JSON.parse(localStorage.getItem(XK)||"[]")}catch(e){}
 const storeX=()=>{try{localStorage.setItem(XK,JSON.stringify(extra))}catch(e){}};
 const xv=id=>$("#"+id).value.trim();
 function drawExtra(){
- $("#xAreas").innerHTML=[...new Set(DATA.cases.map(c=>c.module))].sort().map(m=>`<option value="${esc(m)}">`).join("");
  $("#xCount").textContent=(extra.length?extra.length+" logged":"Not in the checklist")+" · saved temporarily in this browser";
  $("#xClear").hidden=!extra.length;
  $("#xList").innerHTML=extra.map((b,i)=>`<div class="xb"><div class="xh"><span class="sev ${esc(b.sev)}">${esc(b.sev)}</span><b>${esc(b.title)}</b><button class="btn out" type="button" data-xe="${esc(b.id)}">Edit</button><button class="btn out" type="button" data-xd="${esc(b.id)}">Delete</button></div><small>BUG-${i+1}${b.area?" · "+esc(b.area):""}${b.link?" · "+esc(b.link):""}</small>${b.steps?`<div class="xs">${esc(b.steps)}</div>`:""}<div class="shots">${thumbs(b.imgs||[],false)}</div></div>`).join("");fillThumbs($("#xList"))}
@@ -215,6 +216,88 @@ const DEVELOP=[
 ["D-20","Develop · Onboarding AI toggle (carry-over, still present)","Onboarding AI toggle — regression","1. Onboarding AI suggest/feedback panels work (toggle not yet removed on develop) 2. Service blocks / add-new-service page renders with AI toggle state 3. No console errors where toggle is used","AI panels work; pages render with toggle; no console errors.","Low"],
 ["D-21","Develop · Dashboard / settings / translations (carry-over)","Dashboard / settings / translations — regression","1. Dashboard home cards with CARD_META_TEXT styling 2. Settings page loads (SAR commented-out logic doesn't break it) 3. Staff list filter popover + staff page render 4. Discount capitalization fixed in EN and SV","Cards styled consistently; Settings loads; filters render; EN/SV capitalization correct.","Low"]
 ].map(a=>({id:a[0],module:a[1],check:a[2],steps:a[3],expected:a[4],priority:a[5]}));
+
+const MARKETPLACE=[
+["MKT-01","Smoke","Open the home page","Visit the marketplace URL.","Home page loads; deals, businesses, and navigation appear. No JavaScript errors in the console.","Critical"],
+["MKT-02","Smoke","Log in / sign up","Use the login modal or create a new account.","User is logged in; \"My Favorites\" and \"Book Now\" become available.","Critical"],
+["MKT-03","Smoke","Browse deals","Click any deal card.","Deal-detail page opens, showing title, price, and \"Save / Book Now\" buttons.","Critical"],
+["MKT-04","Smoke","Save a deal","Click the heart icon on a deal.","Heart fills in; a snackbar says \"Saved for later\".","Critical"],
+["MKT-05","Smoke","View favorites","Go to the Favorites section.","List of saved businesses appears; each shows name, rating, address, and category.","Critical"],
+["MKT-06","Smoke","Book a service","Start a booking (pick date \u2192 time \u2192 staff \u2192 continue).","Booking steps progress. If you\u2019re a guest you\u2019re asked for email/mobile; if logged in the flow proceeds.","Critical"],
+["MKT-07","Smoke","Leave a review (if you have a past booking)","Find a past booking and select \u201cLeave Review\u201d.","Review form opens with a 1\u20135 star selector and a text box. Submitting shows a confirmation.","Critical"],
+["MKT-08","Smoke","Change language","Open the language dropdown and pick a different language.","All visible text switches to the selected language (English, Swedish, Spanish, Arabic, etc.).","Critical"],
+["MKT-09","Smoke","Dark / light mode","Toggle the theme switch (if present).","Colors swap between light and dark; readability stays good.","Critical"],
+["MKT-10","Smoke","Cookie-consent banner","First visit (or clear cache).","Banner appears at the bottom; Accepting or Dismissing it works.","Critical"],
+
+["MKT-11","Deals","Deal shows starting price","Open a deal detail page. Look near the price area.","A \u201cStarting at:\u201d line appears if the deal has a starting price; if not, no extra line shows.","High"],
+["MKT-12","Deals","Save / remove deal","Click the heart to save, click again to remove.","Heart toggles; snackbar messages: \u201cSaved for later\u201d / \u201cRemoved from saved\u201d.","High"],
+["MKT-13","Deals","Book from deal","On a deal detail page, click \u201cBook Now\u201d.","You\u2019re taken to the booking page pre-filled with the deal; the discount should apply.","High"],
+["MKT-14","Deals","Deal usage counter","If you\u2019ve used a deal before, view its detail.","A badge shows \u201cActive\u201d or \u201cUsed X times\u201d. If the deal is exhausted, an \u201cexhausted\u201d message appears.","Medium"],
+["MKT-15","Deals","Deal expiration","Check a deal with a valid-until date.","Date displays correctly; past-due deals get an \u201cExpired\u201d badge and \u201cBook Now\u201d becomes disabled.","Medium"],
+["MKT-16","Deals","Edge: Deal exhausted (max uses reached)","Open a deal that has reached its maximum uses.","Exhausted message shows and booking is blocked.","Medium"],
+
+["MKT-17","Favorites","View favorites","Log in \u2192 go to Favorites page.","List of saved businesses appears; each shows name, rating, address, category.","High"],
+["MKT-18","Favorites","Search favorites","Type in the search box.","List filters to show only businesses matching the text (name, address, category).","Medium"],
+["MKT-19","Favorites","Filter by category","Use the category dropdown.","Only businesses in the selected category stay visible.","Medium"],
+["MKT-20","Favorites","Remove a favorite","Hover over a business card and click the remove (X).","The business is removed immediately (optimistic update); after a moment the database is updated. If the removal fails, the list reverts to the previous state.","High"],
+["MKT-21","Favorites","View business from favorite","Click a business card in favorites.","A popup slides in with full details (opening hours, phone, website, etc.).","Medium"],
+["MKT-22","Favorites","Edge: Remove favorite while page loading","Remove a favorite while the page is still loading.","The removal should still work and the list should update correctly.","Low"],
+
+["MKT-23","Booking","Start a new booking","Go to a company\u2019s booking page.","Calendar appears with upcoming dates. If the company uses the Nest backend, staff availability is shown.","Critical"],
+["MKT-24","Booking","Select a date","Pick a date from the calendar.","Available time slots for that date load. If no slots are available, a message \u201cNo available times\u201d shows.","High"],
+["MKT-25","Booking","Select a time","Click a time slot.","Slot is highlighted. If the booking requires a specific staff member, the staff list appears.","High"],
+["MKT-26","Booking","Select staff (if shown)","Choose a staff member from the list.","The chosen staff member is remembered; booking continues to the next step.","Medium"],
+["MKT-27","Booking","Complete booking","Fill in name, email, mobile, and submit.","A booking confirmation appears. You receive a confirmation message (and possibly email, depending on settings).","Critical"],
+["MKT-28","Booking","Mobile view","Resize the browser to phone width or open on a mobile device.","UI adjusts \u2013 calendar strips rearrange, buttons resize, touch targets are large enough.","Medium"],
+["MKT-29","Booking","Edge: Staff unavailable for selected date","Book a service that requires a specific staff member, but that staff is unavailable for the selected date.","Message like \u201cThis staff member is not available at this time\u201d appears.","Low"],
+
+["MKT-30","Reviews","Open review form","From a booking confirmation or \u201cMy Bookings\u201d page, click \u201cLeave Review\u201d.","Form appears with a rating selector (1\u20135) and a text box.","High"],
+["MKT-31","Reviews","Submit a rating","Choose 5 stars and write \u201cGreat service!\u201d then submit.","Review submits successfully; the average rating for the company updates.","High"],
+["MKT-32","Reviews","Edit own review","After submitting, click \u201cEdit\u201d on your review.","Form pre-fills with your previous rating and text; you can change and resubmit.","Medium"],
+["MKT-33","Reviews","Guest review (no login)","Use a guest booking link from email.","Form asks for an email confirmation. After entering the matching email, you can submit the review.","Medium"],
+["MKT-34","Reviews","Ineligible booking","Try to review a booking you haven\u2019t made or is too old.","An error message appears: \u201cThis booking is not eligible for a review yet\u201d or similar.","Medium"],
+["MKT-35","Reviews","Edge: Invalid rating (0 or 6)","Submit a review with a rating of 0 or 6.","The system should reject it and show \u201cRating must be between 1 and 5\u201d.","Low"],
+
+["MKT-36","Layout/Design","Page loads without shift","Refresh the page a few times.","Layout doesn\u2019t jump around (no \u201clayout shift\u201d where elements move as resources load).","Medium"],
+["MKT-37","Layout/Design","Dark mode","Toggle the dark/light mode switch.","Colors switch between light and dark themes; text remains readable.","Medium"],
+["MKT-38","Layout/Design","Cookie consent banner","First visit (or clear cache).","Banner appears at the bottom asking to accept cookies. Accepting or dismissing it works.","Medium"],
+["MKT-39","Layout/Design","Restaurant menu preview","If a business has a menu, look for a \u201cPreview Menu\u201d button.","A modal opens showing the menu PDF. The PDF loads within the modal. If the menu URL is invalid, a fallback message appears.","High"],
+["MKT-40","Layout/Design","Business popup on home/favorites","Click on a business card anywhere.","A popup slides in with business details (rating, address, hours, contact). Closing the popup returns you to where you were.","Medium"],
+["MKT-41","Layout/Design","Responsive design","Rotate phone to landscape, or resize browser window.","Content reflows gracefully; no horizontal scrolling unless intended; text stays readable.","Medium"],
+["MKT-42","Layout/Design","Edge: Slow network menu preview","Open the restaurant menu preview on a slow network.","Modal shows a loading indicator; if PDF can\u2019t load, an error message appears (not a blank screen).","Low"],
+
+["MKT-43","Search & Discovery","Search businesses","Use the search bar at the top of the homepage or marketplace.","Results appear matching the typed text (business name, category, location).","High"],
+["MKT-44","Search & Discovery","Filter by category","Use the category dropdown.","Only businesses in the selected category show.","Medium"],
+["MKT-45","Search & Discovery","Location-based search","If the page asks for location permission or you enter a city, results should reflect that area.","Businesses in the entered location appear.","Medium"],
+["MKT-46","Search & Discovery","Edge: No results found","Search for a very specific or uncommon term.","No results shows the \u201cno results found\u201d message, not an error.","Low"],
+
+["MKT-47","Languages/Localization","Switch language","Open the language dropdown and select a different language.","All visible text changes to the selected language (menus, buttons, labels, error messages).","Critical"],
+["MKT-48","Languages/Localization","Read right-to-left languages (Arabic)","Select Arabic.","The layout adjusts \u2013 text direction becomes right-to-left, navigation mirrors, numbers and dates format correctly.","Critical"],
+["MKT-49","Languages/Localization","All modules multilingual","Switch between languages and check: home, deals, favorites, booking, reviews.","Text in all these areas translates; no keys missing (no \u201cKEY_NOT_FOUND\u201d or English text remains).","High"],
+["MKT-50","Languages/Localization","Edge: Long translations overflow","Switch to a language that has longer words (like German, if added).","Buttons and inputs don\u2019t overflow or cut off text.","Low"],
+
+["MKT-51","API/Backend","Availability API","Try to fetch availability for a company (e.g., open the booking page).","The app fetches available dates/times without error. No \u201cFailed to fetch availability\u201d messages.","Medium"],
+["MKT-52","API/Backend","Deal activation API","Save or book a deal.","The request succeeds (HTTP 200). The deal\u2019s usage count updates on the server.","Medium"],
+["MKT-53","API/Backend","Review submission API","Submit a review.","The review appears in the system (check the company\u2019s review list after a few moments).","Medium"],
+["MKT-54","API/Backend","Email verification sync","If you have a Google account, complete email verification in another tab, then come back.","The verification status updates automatically (the broadcast channel or polling detects it).","Medium"],
+["MKT-55","API/Backend","Edge: In-flight request handling","While a booking-availability request is in progress, click around or go to another page.","The app should handle the in-flight request gracefully (not crash, not show stale data).","Low"]
+].map(a=>({id:a[0],module:"Marketplace \u00b7 "+a[1],check:a[2],steps:a[3],expected:a[4],priority:a[5],grp:0}));
+
+const MGRP=["Smoke","Deals","Favorites","Booking","Reviews","Layout/Design","Search & Discovery","Languages/Localization","API/Backend"];
+const MGSUB=[
+"Critical path \u2013 run first",
+"Price, saving, booking from deals",
+"Saved businesses management",
+"Staff, date, time selection",
+"Leave & edit reviews",
+"Pages, components, responsive",
+"Search, filter, location",
+"Language switching, RTL",
+"Availability, deal activation, reviews, email sync"
+];
+[...new Set(MARKETPLACE.map(c=>c.module))].sort().forEach(m=>{const o=document.createElement("option");o.textContent=m;$("#mmod").appendChild(o)});
+$("#xAreas").innerHTML=[...new Set([...DATA.cases.map(c=>c.module),...LAST.map(c=>c.module),...DEVELOP.map(c=>c.module),...MARKETPLACE.map(c=>c.module)])].sort().map(m=>`<option value="${esc(m)}">`).join("");
+
 function drawFeatList(){$("#featList").innerHTML=FEAT.map(card).join("");document.querySelectorAll("#featList .card").forEach(refreshCard);fillThumbs($("#featList"))}
 function fstats(){const c={};FEAT.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=FEAT.length,dn=T-(c["Not tested"]||0);
  $("#fpct").textContent=Math.round(dn/T*100)+"%";$("#fdone").textContent=dn+" of "+T+" checked";
@@ -245,6 +328,31 @@ function renderDevelop(){
  }
  $("#developList").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
  document.querySelectorAll("#developList .card").forEach(refreshCard);dstats();fillThumbs($("#developList"))}
+function mstats(){const c={};MARKETPLACE.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=MARKETPLACE.length,dn=T-(c["Not tested"]||0);
+  $("#mpct").textContent=Math.round(dn/T*100)+"%";$("#mdone").textContent=dn+" of "+T+" tested";
+  [["mp","Passed"],["mf","Failed"],["mb","Blocked"],["mn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%");
+  const defs=[["","All",T,"var(--pur)"],["Not tested","To do",c["Not tested"]||0,"var(--line)"],["Passed","Passed",c.Passed||0,"var(--pass)"],["Failed","Failed",c.Failed||0,"var(--fail)"],["Blocked","Blocked",c.Blocked||0,"var(--blk)"]];
+  $("#mchips").innerHTML=defs.map(d=>`<button class="chip" data-mf="${d[0]}" aria-pressed="${mf.s===d[0]}"><span class="dotc" style="background:${d[3]}"></span>${d[1]} <b>${d[2]}</b></button>`).join("")}
+function renderMarketplace(){
+  const q=$("#mq").value.toLowerCase(),m=$("#mmod").value,p=$("#mpri").value;
+  const list=MARKETPLACE.filter(c=>(!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p)&&(!mf.s||state(c.id).status===mf.s));
+  $("#mshown").textContent=list.length+" of "+MARKETPLACE.length+" shown";
+  let h="";
+  MGRP.forEach((g,idx)=>{
+    const a=list.filter(c=>c.module==="Marketplace \u00b7 "+g);
+    if(a.length)h+=`<div class="gh"><div><h2>${esc(g)}</h2></div><span>${MGSUB[idx]} \u00b7 ${a.length}</span></div>`+a.map(card).join("");
+  });
+  $("#marketplaceList").innerHTML=h||'<div class="empty">No tests match these filters.</div>';
+  document.querySelectorAll("#marketplaceList .card").forEach(refreshCard);mstats();fillThumbs($("#marketplaceList"))}
+function setMarketplaceStatus(el,s){const id=el.dataset.id,was=el.classList.contains("open"),cur=state(id).status,next=cur===s?"Not tested":s;
+  put(id,{status:next});refreshCard(el);mstats();
+  if(next==="Failed"){open(el,true);const t=el.querySelector("textarea");t.focus({preventScroll:true})}
+  else if(next==="Passed"&&was){open(el,false);mNext(el)}}
+function mNext(from){let n=from?from.nextElementSibling:document.querySelector("#marketplaceList .card");
+  for(;n;n=n.nextElementSibling)if(n.classList.contains("card")&&n.dataset.s==="Not tested")break;
+  if(!n&&from){return from.parentElement.id==="marketplaceList"?mNext(null):void 0}
+  if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else if(!from)alert("All marketplace checks are done. Nice work!")}
+
 $("#fNext").onclick=()=>{const n=document.querySelector('#featList .card[data-s="Not tested"]');if(n){open(n,true);n.scrollIntoView({behavior:"smooth",block:"center"})}else alert("All feature checks are done. Nice work!")};
 $("#exp2").onclick=()=>openExp();
 try{$("#fName").value=localStorage.getItem("aspio-qa-fname")||""}catch(e){}
@@ -308,6 +416,7 @@ const frows=()=>{const fn=SCOPES.find(s=>s[0]===scope)[2],lab=$("#expLabel").val
  return [...c,...q]};
 const lrows=()=>LAST.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
 const drows=()=>DEVELOP.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
+const mrows=()=>MARKETPLACE.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Marketplace",imgs:state(i.id).imgs||[],labels:[]}));
 function fillExpLabels(){const u=[...new Set(fIssues.flatMap(b=>b.labels))].sort(),el=$("#expLabel");el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("")}
 $("#useFeat").onchange=()=>drawScope();$("#expLabel").onchange=()=>refreshExp();
 /* tabs */
@@ -316,21 +425,26 @@ function showPage(p){curPage=p;
  $("#pgFeat").hidden=p!=="features";
  $("#pgLast").hidden=p!=="lastweek";
  $("#pgDevelop").hidden=p!=="develop";
+ $("#pgMarketplace").hidden=p!=="marketplace";
  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===p)));
- $("#heroP").innerHTML=p==="features"?"Test what’s new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week’s changes — run the tracked test cards for changes landing on main.":p==="develop"?"Develop branch — run the tracked test cards for origin/develop.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
+ $("#heroP").innerHTML=p==="features"?"Test what's new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week's changes - run the tracked test cards for changes landing on main.":p==="develop"?"Develop branch - run the tracked test cards for origin/develop.":p==="marketplace"?"Marketplace - run the tracked test cards for deals, favorites, booking, reviews, search, and localization.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
  window.scrollTo({top:0});
- if(p==="check")render();else if(p==="features")drawFeatList();else if(p==="lastweek")renderLast();else renderDevelop()}
+ if(p==="check")render();else if(p==="features")drawFeatList();else if(p==="lastweek")renderLast();else if(p==="develop")renderDevelop();else if(p==="marketplace")renderMarketplace()}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{const t=b.dataset.tab;try{location.hash=t==="features"?"features":"check"}catch(e){}showPage(t)});
 $("#gotoLast").onclick=()=>{try{location.hash="#lastweek"}catch(e){}showPage("lastweek")};
 $("#gotoDevelop").onclick=()=>{try{location.hash="#develop"}catch(e){}showPage("develop")};
+$("#gotoMarketplace").onclick=()=>{try{location.hash="#marketplace"}catch(e){}showPage("marketplace")};
 $("#backToCheck").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
 $("#backToDevelop").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
+$("#backToMarketplace").onclick=()=>{try{location.hash="#checklist"}catch(e){}showPage("check")};
 $("#lNext").onclick=()=>lNext(null);
 $("#dNext").onclick=()=>dNext(null);
+$("#mNext").onclick=()=>mNext(null);
 $("#exp3").onclick=()=>openExp();
 $("#exp4").onclick=()=>openExp();
-window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#lastweek"?"lastweek":h==="#develop"?"develop":"check")});
-drawFeatList();drawFeat();showPage(location.hash==="#features"?"features":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":"check");
+$("#expMarketplace").onclick=()=>openExp();
+window.addEventListener("hashchange",()=>{const h=location.hash;showPage(h==="#features"?"features":h==="#lastweek"?"lastweek":h==="#develop"?"develop":h==="#marketplace"?"marketplace":"check")});
+drawFeatList();drawFeat();showPage(location.hash==="#features"?"features":location.hash==="#lastweek"?"lastweek":location.hash==="#develop"?"develop":location.hash==="#marketplace"?"marketplace":"check");
 /* ===== Export / print ===== */
 const SCOPES=[["all","All tests",()=>true],["Not tested","Not tested",s=>s==="Not tested"],["Passed","Passed",s=>s==="Passed"],["Failed","Failed",s=>s==="Failed"],["Blocked","Blocked",s=>s==="Blocked"],["attn","Failed + Blocked",s=>s==="Failed"||s==="Blocked"],["Not applicable","N/A",s=>s==="Not applicable"]];
 let scope="all",useF=false;
@@ -338,7 +452,7 @@ const scopeName=()=>SCOPES.find(s=>s[0]===scope)[1];
 function scoped(){const fn=SCOPES.find(s=>s[0]===scope)[2],q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
  return items.filter(c=>fn(state(c.id).status)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
 const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
-const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[])];
+const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[]),...(useMarketplace?mrows():[])];
 const meta=()=>({feature:$("#fName").value.trim(),tester:$("#tester").value.trim(),build:$("#build").value.trim(),decision:$("#decision").value,date:$("#date").value||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")});
 const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"");
 function summaryText(){const c={};items.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});
@@ -390,9 +504,9 @@ function printOut(list){
  const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done)};
  window.addEventListener("afterprint",done);
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,1500)},60)}
-function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0)+(useDevelop?drows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
-function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST,...DEVELOP].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
-function openExp(){scope=[...items,...FEAT,...LAST,...DEVELOP].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
+function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;useMarketplace=$("#useMarketplace").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0)+(useDevelop?drows().length:0)+(useMarketplace?mrows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
+function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST,...DEVELOP,...MARKETPLACE].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
+function openExp(){scope=[...items,...FEAT,...LAST,...DEVELOP,...MARKETPLACE].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;$("#useMarketplace").checked=MARKETPLACE.some(i=>state(i.id).status!=="Not tested");$("#mktN").textContent=MARKETPLACE.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
 const closeExp=()=>{$("#modal").hidden=true};
 async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent="";
  try{
@@ -405,10 +519,10 @@ $("#exp").onclick=openExp;$("#mx").onclick=closeExp;
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeExp()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeExp()});
 $("#scope").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b){scope=b.dataset.sc;drawScope()}});
-$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;
+$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;$("#useMarketplace").onchange=refreshExp;
 $("#goPdf").onclick=()=>runExp("pdf");$("#goCsv").onclick=()=>runExp("csv");$("#goPrint").onclick=()=>runExp("print");
 
-$("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render()}};
+$("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved).flatMap(s=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render();mf={s:""};renderMarketplace()}};
 
 ["tester","build","date","decision","pmNotes"].forEach(id=>{const el=$("#"+id);try{el.value=localStorage.getItem("aspio-qa-"+id)||""}catch(e){}el.addEventListener("input",()=>{try{localStorage.setItem("aspio-qa-"+id,el.value)}catch(e){}})});
 render();

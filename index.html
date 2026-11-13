@@ -17,6 +17,7 @@
   <nav class="tabs" aria-label="Pages"><button type="button" data-tab="check" aria-selected="true">Main checklist</button><button type="button" data-tab="features" aria-selected="false">New features</button></nav>
   <button type="button" id="gotoLast" class="btn">Last week's changes</button>
   <button type="button" id="gotoDevelop" class="btn">Develop last week's changes</button>
+  <button type="button" id="gotoMarketplace" class="btn">Marketplace</button>
 </div></header>
 
 <div id="pgCheck">
@@ -127,6 +128,32 @@
 </main>
 </div>
 
+<div id="pgMarketplace" hidden>
+<div class="bar"><div class="bar-in">
+  <div class="bar-top"><b id="mpct">0%</b><span id="mdone"></span></div>
+  <div class="track" aria-hidden="true"><i id="mp" style="background:var(--pass)"></i><i id="mf" style="background:var(--fail)"></i><i id="mb" style="background:var(--blk)"></i><i id="mn" style="background:var(--na)"></i></div>
+  <div class="chips" id="mchips"></div>
+</div></div>
+<main class="wrap">
+  <button class="btn" id="backToMarketplace">← Back to main checklist</button>
+  <section class="panel">
+    <div class="lbl" style="margin-top:0">Marketplace — test plan</div>
+    <p>Tracked tests for the <b>Marketplace</b> (deals, discounts, favorites, booking, reviews, search, and localization). Covers both the union of main and develop behavior — smoke tests first, then module suites. Tap <b>Pass</b> or <b>Fail</b> on each card; results are saved in this browser and included in exports.</p>
+    <div class="row2"><button class="btn" id="mNext">Next untested →</button><button class="btn sec" id="expMarketplace" type="button">Export / Print…</button></div>
+  </section>
+  <div class="tools">
+    <input id="mq" type="search" placeholder="Search ID, module or test…" aria-label="Search marketplace tests">
+    <select id="mmod" aria-label="Module"><option value="">All modules</option></select>
+    <select id="mpri" aria-label="Priority"><option value="">All priorities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+  </div>
+  <div style="color:var(--mut);font-size:12px"><span id="mshown"></span></div>
+
+  <div id="marketplaceList"></div>
+
+  <p class="foot">Marketplace page · Results are saved locally in this browser and included in exports.</p>
+</main>
+</div>
+
 <div id="pgDevelop" hidden>
 <div class="bar"><div class="bar-in">
   <div class="bar-top"><b id="dpct">0%</b><span id="ddone"></span></div>
@@ -154,6 +181,7 @@
   <label class="chk"><input type="checkbox" id="useFeat" checked> Include the New features page (<span id="fN">0</span> checks, <span id="fiN">0</span> logged items)</label>
   <label class="chk"><input type="checkbox" id="useLast"> Include Last week's changes page (<span id="lN">0</span> cards)</label>
   <label class="chk"><input type="checkbox" id="useDevelop"> Include Develop branch page (<span id="dN">0</span> cards)</label>
+  <label class="chk"><input type="checkbox" id="useMarketplace"> Include Marketplace page (<span id="mktN">0</span> cards)</label>
   <div class="chk">Only logged items with label: <select id="expLabel" class="field" style="width:auto;padding:4px 8px" aria-label="Label filter"><option value="">Any label</option></select></div>
   <div class="count" id="expCount"></div>
   <div class="lbl">2 · Format</div>
