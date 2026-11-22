@@ -61,18 +61,32 @@ async function handleToolCall(name: string, args: Record<string, any>): Promise<
   }
   if (name === 'qa_update_test') {
     const id = String(args.id).replace(/\//g, '__').slice(0, 1400);
+    const VALID_STATUSES = ['Passed', 'Failed', 'Blocked', 'Not tested', 'Not applicable'];
+    const status = String(args.status ?? '').slice(0, 64);
+    if (!VALID_STATUSES.includes(status)) {
+      throw new Error(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
+    }
+    const notes = String(args.notes ?? '').slice(0, 4096);
     const ref = db.collection('qaRuns').doc(RUN).collection('tests').doc(id);
-    await ref.set({ testId: id, status: args.status, notes: args.notes || '', updatedAt: new Date().toISOString() }, { merge: true });
-    return JSON.stringify({ ok: true, id, status: args.status });
+    await ref.set({ testId: id, status, notes, updatedAt: new Date().toISOString() }, { merge: true });
+    return JSON.stringify({ ok: true, id, status });
   }
   if (name === 'qa_list_bugs') {
     const snap = await db.collection('qaRuns').doc(RUN).collection('bugs').get();
     return JSON.stringify(snap.docs.map(d => ({ ...d.data(), id: d.data().bugId || d.id })), null, 2);
   }
   if (name === 'qa_add_bug') {
+    const VALID_SEVS = ['Critical', 'High', 'Medium', 'Low'];
+    const title = String(args.title ?? '').slice(0, 256);
+    const sev = String(args.sev ?? '').slice(0, 64);
+    if (!VALID_SEVS.includes(sev)) {
+      throw new Error(`Invalid sev: ${sev}. Must be one of: ${VALID_SEVS.join(', ')}`);
+    }
+    const area = String(args.area ?? '').slice(0, 256);
+    const steps = String(args.steps ?? '').slice(0, 4096);
     const id = `bug-${Date.now()}`;
     await db.collection('qaRuns').doc(RUN).collection('bugs').doc(id).set({
-      bugId: id, title: args.title, sev: args.sev, area: args.area || '', steps: args.steps || '', createdAt: new Date().toISOString()
+      bugId: id, title, sev, area, steps, createdAt: new Date().toISOString()
     });
     return JSON.stringify({ ok: true, id });
   }
