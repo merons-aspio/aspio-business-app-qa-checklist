@@ -9,6 +9,7 @@ import { getFirebase } from "./firebase";
 
 const MCP_ADMIN = "meron.s@aspio.se";
 const LS_KEY = "aspio-mcp-key";
+const MCP_KEY_DOC = "meron";
 
 export function isMcpAdmin(user: User | null): boolean {
   return (user?.email?.toLowerCase() ?? "") === MCP_ADMIN;
@@ -64,7 +65,7 @@ async function loadKeyState(): Promise<void> {
   const fb = getFirebase();
   if (!fb) { renderNoFirebase(); return; }
   try {
-    const snap = await getDoc(doc(fb.db, "mcpKeys", "meron"));
+    const snap = await getDoc(doc(fb.db, "mcpKeys", MCP_KEY_DOC));
     const hasDoc = snap.exists();
     const localToken = localStorage.getItem(LS_KEY) ?? "";
     renderPanel(hasDoc, localToken);
@@ -80,7 +81,7 @@ async function generateKey(): Promise<void> {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
   const hash = await sha256hex(token);
-  await setDoc(doc(fb.db, "mcpKeys", "meron"), {
+  await setDoc(doc(fb.db, "mcpKeys", MCP_KEY_DOC), {
     keyHash: hash,
     createdAt: serverTimestamp(),
   });

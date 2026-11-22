@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { timingSafeEqual } from 'crypto';
+
+const MCP_KEY_DOC = 'meron';
 
 // Guard singleton initialization
 function ensureAdminApp() {
@@ -18,12 +21,16 @@ async function sha256hex(text: string): Promise<string> {
 async function validateToken(token: string): Promise<boolean> {
   ensureAdminApp();
   const db = getFirestore();
-  const snap = await db.collection('mcpKeys').doc('meron').get();
+  const snap = await db.collection('mcpKeys').doc(MCP_KEY_DOC).get();
   if (!snap.exists) return false;
   const stored = snap.data()?.keyHash as string | undefined;
   if (!stored) return false;
   const incoming = await sha256hex(token);
-  return incoming === stored;
+  try {
+    return timingSafeEqual(Buffer.from(incoming, 'hex'), Buffer.from(stored, 'hex'));
+  } catch {
+    return false;
+  }
 }
 
 const TOOLS = [
@@ -55,8 +62,8 @@ async function handleToolCall(name: string, args: Record<string, any>): Promise<
   if (name === 'qa_update_test') {
     const id = String(args.id).replace(/\//g, '__').slice(0, 1400);
     const ref = db.collection('qaRuns').doc(RUN).collection('tests').doc(id);
-    await ref.set({ testId: args.id, status: args.status, notes: args.notes || '', updatedAt: new Date().toISOString() }, { merge: true });
-    return JSON.stringify({ ok: true, id: args.id, status: args.status });
+    await ref.set({ testId: id, status: args.status, notes: args.notes || '', updatedAt: new Date().toISOString() }, { merge: true });
+    return JSON.stringify({ ok: true, id, status: args.status });
   }
   if (name === 'qa_list_bugs') {
     const snap = await db.collection('qaRuns').doc(RUN).collection('bugs').get();
