@@ -9,7 +9,7 @@ import { getFirebase } from "./firebase";
 
 const MCP_ADMIN = "meron.s@aspio.se";
 const LS_KEY = "aspio-mcp-key";
-const MCP_KEY_DOC = "meron";
+const MCP_KEY_DOC = "singleton"; // stable single-admin key slot — not tied to a person's name
 
 export function isMcpAdmin(user: User | null): boolean {
   return (user?.email?.toLowerCase() ?? "") === MCP_ADMIN;
@@ -150,6 +150,9 @@ function injectPanel(): void {
 }
 
 function showMcpPanel(): void {
+  // NOTE: This list must stay in sync with the page IDs managed in main.ts.
+  // If a new page is added in main.ts, add its ID here too, or the new panel
+  // will stay visible underneath the MCP tab.
   ["pgCheck", "pgFeat", "pgLast", "pgDevelop", "pgMarketplace"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.hidden = true;
@@ -179,9 +182,20 @@ function renderPanel(hasDoc: boolean, localToken: string): void {
   const noKey = !hasDoc;
   const keyHidden = hasDoc && !localToken;
 
+  const baseUrl = window.location.origin + "/api/mcp";
+  // Claude Desktop config uses Authorization: Bearer to keep the token out of
+  // server logs, browser history, and Referer headers.
   const claudeJson = esc(
     JSON.stringify(
-      { mcpServers: { "aspio-qa": { command: "mcp-remote", args: [url || "https://<your-domain>/api/mcp?key=<secret>"] } } },
+      {
+        mcpServers: {
+          "aspio-qa": {
+            command: "mcp-remote",
+            args: [baseUrl],
+            headers: { Authorization: `Bearer ${localToken || "<secret>"}` },
+          },
+        },
+      },
       null,
       2
     )

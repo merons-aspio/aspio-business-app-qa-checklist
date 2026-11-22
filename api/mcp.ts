@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { timingSafeEqual } from 'crypto';
+import { createHash, timingSafeEqual } from 'crypto';
 
-const MCP_KEY_DOC = 'meron';
+// Stable document ID for the single-admin key slot (not tied to a person's name).
+const MCP_KEY_DOC = 'singleton';
 
 // Guard singleton initialization
 function ensureAdminApp() {
@@ -13,9 +14,8 @@ function ensureAdminApp() {
   initializeApp({ credential: cert(JSON.parse(sa)) });
 }
 
-async function sha256hex(text: string): Promise<string> {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+function sha256hex(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
 }
 
 async function validateToken(token: string): Promise<boolean> {
@@ -25,7 +25,7 @@ async function validateToken(token: string): Promise<boolean> {
   if (!snap.exists) return false;
   const stored = snap.data()?.keyHash as string | undefined;
   if (!stored) return false;
-  const incoming = await sha256hex(token);
+  const incoming = sha256hex(token);
   try {
     return timingSafeEqual(Buffer.from(incoming, 'hex'), Buffer.from(stored, 'hex'));
   } catch {
