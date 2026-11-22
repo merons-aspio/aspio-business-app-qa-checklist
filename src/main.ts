@@ -444,6 +444,8 @@ function showPage(p){curPage=p;
  $("#pgLast").hidden=p!=="lastweek";
  $("#pgDevelop").hidden=p!=="develop";
  $("#pgMarketplace").hidden=p!=="marketplace";
+ // pgMcp is managed by mcp.ts; hide it whenever a non-mcp page is selected.
+ const pgMcp=document.getElementById("pgMcp");if(pgMcp&&p!=="mcp")pgMcp.hidden=true;
  document.querySelectorAll<any>(".tabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===p)));
  $("#heroP").innerHTML=p==="features"?"Test what's new. Tick the basics, then log every bug, content issue or idea with labels.":p==="lastweek"?"Last week's changes - run the tracked test cards for changes landing on main.":p==="develop"?"Develop branch - run the tracked test cards for origin/develop.":p==="marketplace"?"Marketplace - run the tracked test cards for deals, favorites, booking, reviews, search, and localization.":"Tap <b>Pass</b> or <b>Fail</b> on each test. Open a card only when you need the steps or want to leave a note.";
  window.scrollTo({top:0});

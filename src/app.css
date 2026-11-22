@@ -131,3 +131,11 @@ button.lab[aria-pressed="true"]{background:hsl(var(--h) 62% 42%);color:#fff;bord
 @layer base {
   .panel > p { margin: 1em 0; }
 }
+
+/* ===== MCP Config panel (admin only) ===== */
+.mcp-loading{color:var(--mut);font-size:13px;padding:8px 0}
+.mcp-url-row{display:flex;gap:8px;align-items:center}
+.mcp-url-row .field{flex:1;font-family:monospace;font-size:13px}
+.mcp-ref{background:var(--soft);border-radius:12px;padding:12px 14px;margin-top:4px}
+.mcp-ref p{margin:0 0 8px;font-size:13px;color:var(--mut)}
+.mcp-pre{margin:0 0 10px;white-space:pre-wrap;word-break:break-all;font-size:12px;font-family:monospace;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;max-height:200px}

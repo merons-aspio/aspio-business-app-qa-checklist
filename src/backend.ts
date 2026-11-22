@@ -12,6 +12,7 @@ import {
   firebaseEnabled,
   getFirebase,
 } from "./firebase";
+import { initMcp, isMcpAdmin, teardownMcp } from "./mcp";
 import {
   flushPending,
   startSync,
@@ -220,7 +221,7 @@ function toast(message: string) {
 
 async function activateUser(user: User) {
   const email = (user.email || "").toLowerCase();
-  if (!email.endsWith("@" + ALLOWED_DOMAIN)) {
+  if (!email.endsWith("@" + ALLOWED_DOMAIN) && email !== "meronsolomondana@gmail.com") {
     await signOut(getFirebase()!.auth);
     showGate();
     showAuthError(`This checklist is restricted to @${ALLOWED_DOMAIN} accounts.`);
@@ -235,6 +236,8 @@ async function activateUser(user: User) {
   renderBar();
   try {
     await startSync(syncHandlers!, user);
+    // Load MCP panel for the admin account after sync is established.
+    if (isMcpAdmin(user)) void initMcp(user);
   } catch (e: any) {
     console.warn("[auth] sync failed to start", e);
     stopSync();
@@ -295,6 +298,7 @@ export async function initBackend(handlers: SyncHandlers) {
       currentUser = null;
       syncing = false;
       stopSync();
+      teardownMcp();
       status = "local";
       renderBar();
       showGate();

@@ -2,11 +2,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Only verified Aspio Google accounts may read or write QA data.
+    // Only verified Aspio Google accounts (or explicitly allowed individuals) may read or write QA data.
     function isAspio() {
       return request.auth != null
         && request.auth.token.get('email_verified', false) == true
-        && request.auth.token.get('email', '').lower().matches('.*@aspio[.]se$');
+        && (
+          request.auth.token.get('email', '').lower().matches('.*@aspio[.]se$')
+          || request.auth.token.get('email', '').lower() == 'meronsolomondana@gmail.com'
+        );
     }
 
     match /qaRuns/{runId} {
@@ -15,6 +18,18 @@ service cloud.firestore {
       match /{document=**} {
         allow read, write: if isAspio();
       }
+    }
+
+    // MCP configuration — readable only by the designated admin account.
+    function isMcpAdmin() {
+      return request.auth != null
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '').lower() == 'meron.s@aspio.se';
+    }
+
+    match /mcpConfig/{docId} {
+      allow read: if isMcpAdmin();
+      allow write: if isMcpAdmin();
     }
   }
 }
