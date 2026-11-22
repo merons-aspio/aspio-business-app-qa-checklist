@@ -183,22 +183,29 @@ function renderPanel(hasDoc: boolean, localToken: string): void {
   const keyHidden = hasDoc && !localToken;
 
   const baseUrl = window.location.origin + "/api/mcp";
+  // Full token for clipboard copy; masked for on-screen display.
+  const maskedToken = localToken
+    ? "••••••••••••••••••••••••" + localToken.slice(-8)
+    : "<secret>";
   // Claude Desktop config uses Authorization: Bearer to keep the token out of
   // server logs, browser history, and Referer headers.
-  const claudeJson = esc(
-    JSON.stringify(
-      {
-        mcpServers: {
-          "aspio-qa": {
-            command: "mcp-remote",
-            args: [baseUrl],
-            headers: { Authorization: `Bearer ${localToken || "<secret>"}` },
-          },
+  const claudeJsonFull = JSON.stringify(
+    {
+      mcpServers: {
+        "aspio-qa": {
+          command: "mcp-remote",
+          args: [baseUrl],
+          headers: { Authorization: `Bearer ${localToken || "<secret>"}` },
         },
       },
-      null,
-      2
-    )
+    },
+    null,
+    2
+  );
+  // Display version shows masked token so a screenshot never leaks the secret.
+  const claudeJsonMasked = claudeJsonFull.replace(
+    localToken || "NOMATCH",
+    maskedToken
   );
   const displayUrl = esc(url || "https://<your-domain>/api/mcp?key=<secret>");
 
@@ -226,10 +233,10 @@ function renderPanel(hasDoc: boolean, localToken: string): void {
           <ol>
             <li>Install mcp-remote: <code>npm install -g mcp-remote</code></li>
             <li>Open Claude Desktop → Settings → Developer → Edit Config</li>
-            <li>Add to <code>mcpServers</code>:</li>
+            <li>Add to <code>mcpServers</code> (use Copy — token is masked on screen):</li>
           </ol>
-          <pre class="mcp-pre" id="mcpClaudeJson">${claudeJson}</pre>
-          <button class="btn sec mcp-copy-pre" type="button" data-target="mcpClaudeJson">Copy JSON</button>
+          <pre class="mcp-pre" id="mcpClaudeJson">${esc(claudeJsonMasked)}</pre>
+          <button class="btn sec mcp-copy-pre" type="button" data-target="mcpClaudeJson" data-full="${esc(claudeJsonFull)}">Copy JSON</button>
           <ol start="4"><li>Restart Claude Desktop</li></ol>
         </div>
       </details>
@@ -293,11 +300,12 @@ function renderPanel(hasDoc: boolean, localToken: string): void {
   document.querySelectorAll<HTMLButtonElement>(".mcp-copy-pre").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const target = btn.dataset.target;
-      if (!target) return;
-      const pre = document.getElementById(target);
-      if (!pre) return;
+      // data-full carries the unmasked value when the display is masked
+      const fullText = btn.dataset.full;
+      const pre = target ? document.getElementById(target) : null;
+      const text = fullText ?? pre?.textContent ?? "";
       try {
-        await navigator.clipboard.writeText(pre.textContent ?? "");
+        await navigator.clipboard.writeText(text);
         const orig = btn.textContent!;
         btn.textContent = "Copied!";
         setTimeout(() => { btn.textContent = orig; }, 1800);

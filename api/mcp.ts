@@ -103,6 +103,14 @@ async function handleToolCall(name: string, args: Record<string, any>): Promise<
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS — allow same-origin test pings and future cross-origin browser clients
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -157,9 +165,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         result: { content: [{ type: 'text', text }] }
       });
     } catch (err: any) {
+      // Unknown tool name is a client error (-32601); other failures are internal (-32603)
+      const isUnknownTool = String(err?.message || '').startsWith('Unknown tool:');
       return res.status(200).json({
         jsonrpc: '2.0', id: rpcId,
-        error: { code: -32603, message: String(err?.message || err) }
+        error: { code: isUnknownTool ? -32601 : -32603, message: String(err?.message || err) }
       });
     }
   }

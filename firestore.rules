@@ -27,11 +27,6 @@ service cloud.firestore {
         && request.auth.token.get('email', '').lower() == 'meron.s@aspio.se';
     }
 
-    match /mcpConfig/{docId} {
-      allow read: if isMcpAdmin();
-      allow write: if isMcpAdmin();
-    }
-
     match /mcpKeys/{docId} {
       allow read, write: if isMcpAdmin();
     }
