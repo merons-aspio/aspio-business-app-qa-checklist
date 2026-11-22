@@ -1,12 +1,12 @@
 {
+  "functions": {
+    "api/mcp.ts": { "runtime": "nodejs20.x" }
+  },
   "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    }
+    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
   ],
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/api/mcp(.*)", "dest": "/api/mcp$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

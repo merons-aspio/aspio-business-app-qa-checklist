@@ -31,5 +31,9 @@ service cloud.firestore {
       allow read: if isMcpAdmin();
       allow write: if isMcpAdmin();
     }
+
+    match /mcpKeys/{docId} {
+      allow read, write: if isMcpAdmin();
+    }
   }
 }

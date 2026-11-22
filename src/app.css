@@ -132,10 +132,25 @@ button.lab[aria-pressed="true"]{background:hsl(var(--h) 62% 42%);color:#fff;bord
   .panel > p { margin: 1em 0; }
 }
 
-/* ===== MCP Config panel (admin only) ===== */
+/* ===== MCP Server panel (admin only) ===== */
 .mcp-loading{color:var(--mut);font-size:13px;padding:8px 0}
-.mcp-url-row{display:flex;gap:8px;align-items:center}
-.mcp-url-row .field{flex:1;font-family:monospace;font-size:13px}
-.mcp-ref{background:var(--soft);border-radius:12px;padding:12px 14px;margin-top:4px}
-.mcp-ref p{margin:0 0 8px;font-size:13px;color:var(--mut)}
-.mcp-pre{margin:0 0 10px;white-space:pre-wrap;word-break:break-all;font-size:12px;font-family:monospace;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;max-height:200px}
+.mcp-no-key{color:var(--mut);font-size:13px;margin:0 0 10px;font-style:italic}
+.mcp-url-row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.mcp-url-row .field{flex:1;font-family:monospace;font-size:12px;min-width:0}
+.mcp-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0 20px}
+.mcp-status{font-size:13px;font-weight:650}
+.mcp-status--ok{color:var(--pass)}
+.mcp-status--fail{color:var(--fail)}
+.mcp-status--pending{color:var(--mut)}
+.mcp-accordions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.mcp-detail{background:var(--soft);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mcp-detail summary{cursor:pointer;padding:12px 14px;font-weight:650;font-size:14px;user-select:none;list-style:none;display:flex;align-items:center;gap:8px}
+.mcp-detail summary::before{content:"▶";font-size:10px;color:var(--pur);transition:transform .2s;display:inline-block}
+.mcp-detail[open] summary::before{transform:rotate(90deg)}
+.mcp-detail-body{padding:4px 14px 14px;border-top:1px solid var(--line)}
+.mcp-detail-body ol,.mcp-detail-body ul{margin:8px 0;padding-left:20px;font-size:13px;color:var(--mut);line-height:1.7}
+.mcp-detail-body li{margin-bottom:2px}
+.mcp-pre{margin:8px 0;white-space:pre-wrap;word-break:break-all;font-size:12px;font-family:monospace;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;max-height:200px}
+.mcp-tools-list{list-style:disc;font-size:13px;color:var(--mut)}
+.mcp-tools-list li{margin-bottom:4px}
+.mcp-tools-list code{color:var(--pur);background:transparent;padding:0}

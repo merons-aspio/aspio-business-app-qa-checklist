@@ -1,73 +1,117 @@
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { getFirebase } from "./firebase";
 
 const MCP_ADMIN = "meron.s@aspio.se";
-const DOC_PATH = ["mcpConfig", "server"] as const;
+const LS_KEY = "aspio-mcp-key";
 
 export function isMcpAdmin(user: User | null): boolean {
   return (user?.email?.toLowerCase() ?? "") === MCP_ADMIN;
 }
 
-// ── DOM refs ────────────────────────────────────────────────────────────────
-
 let tabBtn: HTMLButtonElement | null = null;
 let panel: HTMLElement | null = null;
 let initialized = false;
+let currentUser: User | null = null;
 
-// ── Public API ───────────────────────────────────────────────────────────────
-
-/**
- * Called after sign-in. If the user is the MCP admin, inject the tab button
- * and panel, then load the config from Firestore.
- */
 export async function initMcp(user: User): Promise<void> {
   if (!isMcpAdmin(user)) return;
+  currentUser = user;
   if (!initialized) {
     injectTab();
     injectPanel();
     initialized = true;
   }
-  await loadConfig();
+  await loadKeyState();
 }
 
-/**
- * Called on sign-out / local-only mode. Hides and removes the MCP tab.
- */
 export function teardownMcp(): void {
   tabBtn?.remove();
   panel?.remove();
   tabBtn = null;
   panel = null;
   initialized = false;
+  currentUser = null;
 }
 
-// ── Firestore helpers ────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-async function loadConfig(): Promise<void> {
+function esc(s: string): string {
+  return String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
+  );
+}
+
+async function sha256hex(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function buildMcpUrl(token: string): string {
+  const host = window.location.origin;
+  return `${host}/api/mcp?key=${encodeURIComponent(token)}`;
+}
+
+// ── Firestore key management ──────────────────────────────────────────────────
+
+async function loadKeyState(): Promise<void> {
   const fb = getFirebase();
-  if (!fb) return;
+  if (!fb) { renderNoFirebase(); return; }
   try {
-    const snap = await getDoc(doc(fb.db, ...DOC_PATH));
-    const data = snap.exists() ? snap.data() : null;
-    renderConfig(data);
+    const snap = await getDoc(doc(fb.db, "mcpKeys", "meron"));
+    const hasDoc = snap.exists();
+    const localToken = localStorage.getItem(LS_KEY) ?? "";
+    renderPanel(hasDoc, localToken);
   } catch (err) {
-    console.warn("[mcp] could not load config", err);
-    renderError("Could not load MCP config from Firestore.");
+    console.warn("[mcp] loadKeyState failed", err);
+    renderError("Could not load key state from Firestore.");
   }
 }
 
-async function saveConfig(url: string, notes: string): Promise<void> {
+async function generateKey(): Promise<void> {
   const fb = getFirebase();
-  if (!fb) throw new Error("Firebase not available");
-  await setDoc(doc(fb.db, ...DOC_PATH), {
-    url: url.trim(),
-    notes: notes.trim(),
-    updatedAt: serverTimestamp(),
+  if (!fb) return;
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hash = await sha256hex(token);
+  await setDoc(doc(fb.db, "mcpKeys", "meron"), {
+    keyHash: hash,
+    createdAt: serverTimestamp(),
   });
+  localStorage.setItem(LS_KEY, token);
+  renderPanel(true, token);
 }
 
-// ── DOM injection ────────────────────────────────────────────────────────────
+async function testConnection(token: string): Promise<void> {
+  const statusEl = document.getElementById("mcpTestStatus");
+  if (!statusEl) return;
+  statusEl.textContent = "Testing…";
+  statusEl.className = "mcp-status mcp-status--pending";
+  try {
+    const url = buildMcpUrl(token);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json() as any;
+    const count = json?.result?.tools?.length ?? 0;
+    statusEl.textContent = `✓ Connected — ${count} tool${count !== 1 ? "s" : ""} available`;
+    statusEl.className = "mcp-status mcp-status--ok";
+  } catch (err: any) {
+    statusEl.textContent = `✗ Failed: ${err?.message ?? String(err)}`;
+    statusEl.className = "mcp-status mcp-status--fail";
+  }
+}
+
+// ── DOM injection ─────────────────────────────────────────────────────────────
 
 function injectTab(): void {
   const tabs = document.querySelector<HTMLElement>(".tabs");
@@ -76,7 +120,7 @@ function injectTab(): void {
   tabBtn.type = "button";
   tabBtn.dataset.tab = "mcp";
   tabBtn.setAttribute("aria-selected", "false");
-  tabBtn.textContent = "⚙ MCP Config";
+  tabBtn.textContent = "⚙ MCP Server";
   tabBtn.addEventListener("click", () => {
     document.querySelectorAll<HTMLButtonElement>(".tabs button").forEach((b) =>
       b.setAttribute("aria-selected", "false")
@@ -93,11 +137,10 @@ function injectPanel(): void {
   panel.hidden = true;
   panel.innerHTML = `
     <main class="wrap" style="padding-top:24px">
-      <div class="gh"><h2>MCP Server Configuration</h2><span>Admin only · stored in Firestore</span></div>
+      <div class="gh"><h2>MCP Server</h2><span>Admin only · meron.s@aspio.se</span></div>
       <section class="panel" id="mcpPanel">
         <p style="color:var(--mut);font-size:13px;margin:0 0 14px">
-          This configuration is only visible to you. The URL and notes are stored
-          securely in Firestore and never included in the client bundle.
+          Your personal MCP endpoint is live and ready to connect.
         </p>
         <div id="mcpContent"><div class="mcp-loading">Loading…</div></div>
       </section>
@@ -106,7 +149,6 @@ function injectPanel(): void {
 }
 
 function showMcpPanel(): void {
-  // Hide all other pages
   ["pgCheck", "pgFeat", "pgLast", "pgDevelop", "pgMarketplace"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.hidden = true;
@@ -115,105 +157,136 @@ function showMcpPanel(): void {
   window.scrollTo({ top: 0 });
 }
 
-// ── Render helpers ───────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
 
-function esc(s: string): string {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
-  );
+function renderNoFirebase(): void {
+  const el = document.getElementById("mcpContent");
+  if (el) el.innerHTML = `<p style="color:var(--fail)">Firebase not configured.</p>`;
 }
 
-function renderConfig(data: Record<string, any> | null): void {
+function renderError(msg: string): void {
+  const el = document.getElementById("mcpContent");
+  if (el) el.innerHTML = `<p style="color:var(--fail)">${esc(msg)}</p>`;
+}
+
+function renderPanel(hasDoc: boolean, localToken: string): void {
   const content = document.getElementById("mcpContent");
   if (!content) return;
 
-  const url = data?.url ?? "";
-  const notes = data?.notes ?? "";
+  const url = localToken ? buildMcpUrl(localToken) : "";
+
+  const noKey = !hasDoc;
+  const keyHidden = hasDoc && !localToken;
+
+  const claudeJson = esc(
+    JSON.stringify(
+      { mcpServers: { "aspio-qa": { command: "mcp-remote", args: [url || "https://<your-domain>/api/mcp?key=<secret>"] } } },
+      null,
+      2
+    )
+  );
+  const displayUrl = esc(url || "https://<your-domain>/api/mcp?key=<secret>");
 
   content.innerHTML = `
-    <div class="lbl" style="margin-top:0">MCP Server URL</div>
-    <div class="mcp-url-row">
-      <input class="field" id="mcpUrl" type="url" placeholder="https://your-mcp-server.example.com/sse"
-             value="${esc(url)}" autocomplete="off" spellcheck="false">
-      <button class="btn sec" id="mcpCopy" type="button" title="Copy URL">Copy</button>
+    <div class="lbl" style="margin-top:0">Secret MCP URL</div>
+    ${noKey ? `<p class="mcp-no-key">No key yet. Generate one to get started.</p>` : ""}
+    ${keyHidden ? `<p class="mcp-no-key">Key exists (secret hidden) — regenerate to reveal a new one.</p>` : ""}
+    ${!noKey ? `
+      <div class="mcp-url-row">
+        <input class="field" id="mcpUrlField" type="text" readonly
+               value="${displayUrl}"
+               style="font-family:monospace;font-size:12px" />
+        <button class="btn sec" id="mcpCopyUrl" type="button">Copy</button>
+      </div>` : ""}
+    <div class="mcp-actions">
+      <button class="btn sec" id="mcpGenKey" type="button">${noKey ? "Generate key" : "Regenerate key"}</button>
+      ${!noKey && localToken ? `<button class="btn sec" id="mcpTestBtn" type="button">Test connection</button>
+      <span id="mcpTestStatus" class="mcp-status"></span>` : ""}
     </div>
-    <div class="lbl">Notes / instructions</div>
-    <textarea id="mcpNotes" placeholder="API key, usage notes, endpoint details…" style="min-height:100px">${esc(notes)}</textarea>
-    <div class="row2" style="margin-top:12px">
-      <button class="btn" id="mcpSave" type="button">Save</button>
-      <span id="mcpMsg" style="font-size:13px;color:var(--mut);align-self:center"></span>
-    </div>
-    ${url ? `
-    <div class="lbl">Quick reference</div>
-    <div class="mcp-ref">
-      <p>Add to your Kiro <code>mcp.json</code>:</p>
-      <pre class="mcp-pre" id="mcpSnippet">${esc(buildSnippet(url))}</pre>
-      <button class="btn sec" id="mcpCopySnippet" type="button">Copy JSON snippet</button>
-    </div>` : ""}`;
 
-  document.getElementById("mcpCopy")?.addEventListener("click", () => copyText(url, "mcpCopy", "Copied!"));
-  document.getElementById("mcpCopySnippet")?.addEventListener("click", () =>
-    copyText(buildSnippet(url), "mcpCopySnippet", "Copied!")
-  );
-  document.getElementById("mcpSave")?.addEventListener("click", async () => {
-    const urlEl = document.getElementById("mcpUrl") as HTMLInputElement;
-    const notesEl = document.getElementById("mcpNotes") as HTMLTextAreaElement;
-    const msg = document.getElementById("mcpMsg")!;
-    const saveBtn = document.getElementById("mcpSave") as HTMLButtonElement;
-    saveBtn.disabled = true;
-    msg.textContent = "Saving…";
+    <div class="mcp-accordions">
+      <details class="mcp-detail">
+        <summary>Claude Desktop setup</summary>
+        <div class="mcp-detail-body">
+          <ol>
+            <li>Install mcp-remote: <code>npm install -g mcp-remote</code></li>
+            <li>Open Claude Desktop → Settings → Developer → Edit Config</li>
+            <li>Add to <code>mcpServers</code>:</li>
+          </ol>
+          <pre class="mcp-pre" id="mcpClaudeJson">${claudeJson}</pre>
+          <button class="btn sec mcp-copy-pre" type="button" data-target="mcpClaudeJson">Copy JSON</button>
+          <ol start="4"><li>Restart Claude Desktop</li></ol>
+        </div>
+      </details>
+
+      <details class="mcp-detail">
+        <summary>ChatGPT / OpenAI setup</summary>
+        <div class="mcp-detail-body">
+          <ol>
+            <li>Go to ChatGPT → Settings → Connected apps → Add custom connector</li>
+            <li>Paste the MCP URL directly (ChatGPT supports Streamable HTTP natively):</li>
+          </ol>
+          <pre class="mcp-pre" id="mcpChatGptUrl">${displayUrl}</pre>
+          <button class="btn sec mcp-copy-pre" type="button" data-target="mcpChatGptUrl">Copy URL</button>
+          <ol start="3"><li>Authorize when prompted</li></ol>
+        </div>
+      </details>
+
+      <details class="mcp-detail">
+        <summary>Available tools (6)</summary>
+        <div class="mcp-detail-body">
+          <ul class="mcp-tools-list">
+            <li><code>qa_list_tests</code> — List all test IDs and statuses (optional status filter)</li>
+            <li><code>qa_get_test</code> — Get full details of one test by ID</li>
+            <li><code>qa_update_test</code> — Update a test's status and/or notes</li>
+            <li><code>qa_list_bugs</code> — List all logged bugs</li>
+            <li><code>qa_add_bug</code> — Add a new bug report</li>
+            <li><code>qa_summary</code> — Return pass/fail/blocked/not-tested counts</li>
+          </ul>
+        </div>
+      </details>
+    </div>`;
+
+  document.getElementById("mcpGenKey")?.addEventListener("click", async () => {
+    const btn = document.getElementById("mcpGenKey") as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = "Generating…";
     try {
-      await saveConfig(urlEl.value, notesEl.value);
-      msg.style.color = "var(--pass)";
-      msg.textContent = "Saved ✓";
-      setTimeout(() => {
-        msg.textContent = "";
-        msg.style.color = "";
-      }, 3000);
-      // Re-render with updated snippet
-      renderConfig({ url: urlEl.value, notes: notesEl.value });
+      await generateKey();
     } catch (err: any) {
-      msg.style.color = "var(--fail)";
-      msg.textContent = "Error: " + (err?.message ?? "unknown");
+      renderError("Failed to generate key: " + (err?.message ?? String(err)));
     } finally {
-      saveBtn.disabled = false;
+      btn.disabled = false;
     }
   });
-}
 
-function renderError(message: string): void {
-  const content = document.getElementById("mcpContent");
-  if (content) content.innerHTML = `<p style="color:var(--fail)">${esc(message)}</p>`;
-}
-
-function buildSnippet(url: string): string {
-  return JSON.stringify(
-    {
-      mcpServers: {
-        "aspio-mcp": {
-          url: url,
-          disabled: false,
-        },
-      },
-    },
-    null,
-    2
-  );
-}
-
-async function copyText(text: string, btnId: string, label: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-    const btn = document.getElementById(btnId) as HTMLButtonElement | null;
-    if (btn) {
+  document.getElementById("mcpCopyUrl")?.addEventListener("click", async () => {
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      const btn = document.getElementById("mcpCopyUrl") as HTMLButtonElement;
       const orig = btn.textContent!;
-      btn.textContent = label;
-      setTimeout(() => {
-        btn.textContent = orig;
-      }, 1800);
-    }
-  } catch {
-    /* clipboard blocked — silently ignore */
-  }
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = orig; }, 1800);
+    } catch { /* blocked */ }
+  });
+
+  document.getElementById("mcpTestBtn")?.addEventListener("click", () => {
+    if (localToken) testConnection(localToken);
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".mcp-copy-pre").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const target = btn.dataset.target;
+      if (!target) return;
+      const pre = document.getElementById(target);
+      if (!pre) return;
+      try {
+        await navigator.clipboard.writeText(pre.textContent ?? "");
+        const orig = btn.textContent!;
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = orig; }, 1800);
+      } catch { /* blocked */ }
+    });
+  });
 }
