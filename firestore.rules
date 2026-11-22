@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only verified Aspio Google accounts may read or write QA data.
+    function isAspio() {
+      return request.auth != null
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '').lower().matches('.*@aspio[.]se$');
+    }
+
+    match /qaRuns/{runId} {
+      allow read, write: if isAspio();
+
+      match /{document=**} {
+        allow read, write: if isAspio();
+      }
+    }
+  }
+}

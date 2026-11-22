@@ -6,13 +6,21 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "emulators": "firebase emulators:start --only auth,firestore",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore:rules"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.14",
+    "firebase-tools": "^15.37.0",
     "postcss": "^8.4.21",
     "tailwindcss": "3.3.2",
     "typescript": "^5.0.2",
     "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "firebase": "^11.10.0"
   }
 }

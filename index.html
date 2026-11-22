@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aspio Business App | QA Checklist</title>
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="./src/app.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -54,7 +55,7 @@
     </div>
     <textarea id="xSteps" placeholder="Steps to reproduce (one per line)" aria-label="Steps to reproduce"></textarea>
     <div class="xgrid2"><textarea id="xExp" placeholder="Expected result" aria-label="Expected result"></textarea><textarea id="xAct" placeholder="Actual result" aria-label="Actual result"></textarea></div>
-    <div class="shots" id="xShots"></div><div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">Add image<input type="file" id="xFile" accept="image/*" multiple hidden></label></div>
+    <div class="shots" id="xShots"></div><div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">or Add image<input type="file" id="xFile" accept="image/*" multiple hidden></label></div>
     <input class="field" style="margin-top:8px" id="xLink" placeholder="Evidence link or ticket ID (optional)" aria-label="Evidence or ticket">
     <div class="row2"><button class="btn" id="xAdd" type="button">Add bug</button><button class="btn out" id="xCancel" type="button" hidden>Cancel edit</button><button class="btn out" id="xClear" type="button" hidden>Clear all</button></div>
     <div id="xList"></div>
@@ -99,7 +100,7 @@
     <div class="lib" id="fiLib"></div>
     <div class="row2" style="margin-top:8px"><input class="field" id="fiNewLab" style="max-width:280px" placeholder="New label, then press Enter" aria-label="New label"><button class="btn sec" type="button" id="fiAddLab">Add label</button><button class="btn out" type="button" id="fiManage">Manage labels</button></div>
     <div class="xgrid" style="grid-template-columns:140px 1fr;margin-top:10px"><select id="fiSev" class="field" aria-label="Severity"><option>Critical</option><option>High</option><option selected>Medium</option><option>Low</option></select><input class="field" id="fiLink" placeholder="Evidence link or ticket ID (optional)" aria-label="Evidence or ticket"></div>
-    <div class="shots" id="fiShots"></div><div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">Add image<input type="file" id="fiFile" accept="image/*" multiple hidden></label></div>
+    <div class="shots" id="fiShots"></div><div class="shotbar"><span>Paste a screenshot anywhere in this form (Ctrl/Cmd+V), or</span><label class="btn sec sm">or Add image<input type="file" id="fiFile" accept="image/*" multiple hidden></label></div>
     <div class="row2"><button class="btn" id="fiAdd" type="button">Add to log</button><button class="btn out" id="fiCancel" type="button" hidden>Cancel edit</button></div>
   </section>
 
