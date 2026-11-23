@@ -19,6 +19,7 @@ const LBL: Record<string,string>={"Passed":"Pass","Failed":"Fail","Blocked":"Blo
 let saved: any={};try{saved=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}
 const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(saved))}catch(e){}};
 const state=id=>saved[id]||{status:"Not tested",notes:"",done:[]};
+const isTouched=id=>{const st=state(id);return st.status!=="Not tested"||(st.done||[]).length>0||!!(st.notes||"").trim()||(st.imgs||[]).length>0};
 const put=(id,p)=>{saved[id]={...state(id),...p};store();syncTest(id,saved[id],Object.keys(p))};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $=s=>document.querySelector<any>(s);
@@ -321,10 +322,9 @@ function fstats(){const c: Record<string, number>={};FEAT.forEach(i=>{const s=st
  [["fp","Passed"],["ff","Failed"],["fb","Blocked"],["fn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
 function lstats(){const c: Record<string, number>={};LAST.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});const T=LAST.length,dn=T-(c["Not tested"]||0);
  $("#lpct").textContent=Math.round(dn/T*100)+"%";$("#ldone").textContent=dn+" of "+T+" tested";
- [["lp","Passed"],["lf","Failed"],["lb","Blocked"],["ln","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
+ [["lp","Passed"],["lf","Failed"],["lblock","Blocked"],["ln","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
 function renderLast(){
- const q=$("#q").value.toLowerCase();
- const list=LAST.filter(c=>!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q));
+ const list=LAST;
  const groups: Record<string, any[]>={};list.forEach(c=>{if(!groups[c.module])groups[c.module]=[];groups[c.module].push(c)});
  let h="";
  for(const [mod,cs] of Object.entries(groups)){
@@ -336,8 +336,7 @@ function dstats(){const c: Record<string, number>={};DEVELOP.forEach(i=>{const s
  $("#dpct").textContent=Math.round(dn/T*100)+"%";$("#ddone").textContent=dn+" of "+T+" tested";
  [["dp","Passed"],["df","Failed"],["db","Blocked"],["dn","Not applicable"]].forEach(([i,s])=>$("#"+i).style.width=((c[s]||0)/T*100)+"%")}
 function renderDevelop(){
- const q=$("#q").value.toLowerCase();
- const list=DEVELOP.filter(c=>!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q));
+ const list=DEVELOP;
  const groups: Record<string, any[]>={};list.forEach(c=>{if(!groups[c.module])groups[c.module]=[];groups[c.module].push(c)});
  let h="";
  for(const [mod,cs] of Object.entries(groups)){
@@ -428,13 +427,16 @@ $("#fiPanel").addEventListener("paste",e=>{const p=pastedImages(e);if(!p.files.l
 $("#fiFile").onchange=async e=>{const f=[...e.target.files];e.target.value="";await fiAttach(f)};
 /* export hooks */
 const fOn=()=>$("#useFeat").checked;
-const frows=()=>{const fn=SCOPES.find(s=>s[0]===scope)![2],lab=$("#expLabel").value;
- const c=FEAT.filter(i=>fn(state(i.id).status)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"New feature checklist",imgs:state(i.id).imgs||[],labels:[]}));
+const exportOnlyTouched=()=>$("#onlyTouched").checked;
+const statusOk=id=>SCOPES.find(s=>s[0]===scope)![2](state(id).status);
+const includeRow=id=>statusOk(id)&&(!exportOnlyTouched()||isTouched(id));
+const frows=()=>{const lab=$("#expLabel").value;
+ const c=FEAT.filter(i=>includeRow(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"New feature checklist",imgs:state(i.id).imgs||[],labels:[]}));
  const q=fIssues.map((b,i)=>({b,i})).filter(o=>!lab||o.b.labels.includes(lab)).map(({b,i})=>({id:"ISSUE-"+(i+1),module:"New feature issue",check:b.title,priority:b.sev,status:"Issue",steps:[],expected:"",nlabel:"DETAILS",notes:[b.details,b.link?"Evidence / ticket: "+b.link:""].filter(Boolean).join("\n"),group:"New feature issues",imgs:b.imgs||[],labels:b.labels||[]}));
  return [...c,...q]};
-const lrows=()=>LAST.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
-const drows=()=>DEVELOP.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
-const mrows=()=>MARKETPLACE.map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Marketplace",imgs:state(i.id).imgs||[],labels:[]}));
+const lrows=()=>LAST.filter(i=>includeRow(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Last week's changes",imgs:state(i.id).imgs||[],labels:[]}));
+const drows=()=>DEVELOP.filter(i=>includeRow(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Develop branch",imgs:state(i.id).imgs||[],labels:[]}));
+const mrows=()=>MARKETPLACE.filter(i=>includeRow(i.id)).map(i=>({id:i.id,module:i.module,check:i.check,priority:i.priority,status:state(i.id).status,steps:stepsOf(i.steps),expected:i.expected,notes:(state(i.id).notes||"").trim(),group:"Marketplace",imgs:state(i.id).imgs||[],labels:[]}));
 function fillExpLabels(){const u=[...new Set(fIssues.flatMap(b=>b.labels))].sort(),el=$("#expLabel");el.innerHTML='<option value="">Any label</option>'+u.map(l=>`<option>${esc(l)}</option>`).join("")}
 $("#useFeat").onchange=()=>drawScope();$("#expLabel").onchange=()=>refreshExp();
 /* tabs */
@@ -471,12 +473,13 @@ let scope="all",useF=false;
 const scopeName=()=>SCOPES.find(s=>s[0]===scope)[1];
 function scoped(){const fn=SCOPES.find(s=>s[0]===scope)[2],q=$("#q").value.toLowerCase(),m=$("#mod").value,p=$("#pri").value;
  return items.filter(c=>fn(state(c.id).status)&&(!useF||((!q||[c.id,c.module,c.check].join(" ").toLowerCase().includes(q))&&(!m||c.module===m)&&(!p||c.priority===p))))}
-const baseRows=list=>list.map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
+const baseRows=list=>list.filter(c=>!exportOnlyTouched()||isTouched(c.id)).map(c=>({id:c.id,module:c.module,check:c.check,priority:c.priority,status:state(c.id).status,steps:stepsOf(c.steps),expected:c.expected,notes:(state(c.id).notes||"").trim(),group:GRP[c.grp],imgs:state(c.id).imgs||[]}));
 const rows=list=>[...baseRows(list),...(xOn()?xrows():[]),...(fOn()?frows():[]),...(useLast?lrows():[]),...(useDevelop?drows():[]),...(useMarketplace?mrows():[])];
 const meta=()=>({feature:$("#fName").value.trim(),tester:$("#tester").value.trim(),build:$("#build").value.trim(),decision:$("#decision").value,date:$("#date").value||new Date().toISOString().slice(0,10),scope:scopeName()+(useF?" (filtered)":"")});
 const slug=()=>meta().scope.replace(/[^a-z0-9]+/gi,"_").replace(/^_|_$/g,"");
-function summaryText(){const c: Record<string, number>={};items.forEach(i=>{const s=state(i.id).status;c[s]=(c[s]||0)+1});
- return "Overall: "+items.length+" tests - "+(c.Passed||0)+" passed, "+(c.Failed||0)+" failed, "+(c.Blocked||0)+" blocked, "+(c["Not applicable"]||0)+" N/A, "+(c["Not tested"]||0)+" not tested"}
+function summaryText(R){const c: Record<string, number>={};R.forEach(x=>{c[x.status]=(c[x.status]||0)+1});
+ const extra=(c["New bug"]||0)+(c.Issue||0);
+ return "Report: "+R.length+" item"+(R.length===1?"":"s")+" - "+(c.Passed||0)+" passed, "+(c.Failed||0)+" failed, "+(c.Blocked||0)+" blocked, "+(c["Not applicable"]||0)+" N/A, "+(c["Not tested"]||0)+" not tested"+(extra?" ("+extra+" logged bug"+(extra===1?"":"s")+"/issue"+(extra===1?"":"s")+")":"")}
 async function saveFile(name,data,type){
  let dl=null;try{dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null}catch(e){}
  if(dl){try{await dl.save({filename:name,data});return "saved"}catch(e){if(e&&e.code==="declined")return "declined";throw e}}
@@ -495,9 +498,9 @@ function pdfOut(list){
  d.setTextColor(255,255,255);d.setFont("helvetica","bold");d.setFontSize(21);d.text("Aspio Business App",M,42);
  d.setFont("helvetica","normal");d.setFontSize(11);d.text(safe("QA test report  -  Scope: "+m.scope+(m.feature?"  -  Feature: "+m.feature:"")),M,64);
  d.setFontSize(9);d.text(safe(m.date+(m.tester?"   |   Tester: "+m.tester:"")+(m.build?"   |   Build: "+m.build:"")),M,80);
- y=110;tx(summaryText(),{sz:9.5,c:[90,80,110]});
+ y=110;tx(summaryText(R),{sz:9.5,c:[90,80,110]});
  if(m.decision)tx("Release decision: "+m.decision,{sz:10,b:1});
- tx(list.length+" test"+(list.length===1?"":"s")+(R.length>list.length?" + "+(R.length-list.length)+" other bug"+(R.length-list.length===1?"":"s"):"")+" in this report",{sz:10,b:1,gap:6});
+ tx(R.length+" item"+(R.length===1?"":"s")+" in this report",{sz:10,b:1,gap:6});
  d.setDrawColor(228,220,240);d.line(M,y,W-M,y);y+=14;
  R.forEach(x=>{
   if(y+120>H-M){d.addPage();y=M}
@@ -518,14 +521,14 @@ function pdfOut(list){
  return d.output("blob")}
 function printOut(list){
  const m=meta(),R=rows(list);
- $("#printArea").innerHTML=`<h1>Aspio Business App · QA test report</h1><p class="pm">Scope: <b>${esc(m.scope)}</b>${m.feature?" · Feature: <b>"+esc(m.feature)+"</b>":""} · ${list.length} test${list.length===1?"":"s"}${R.length>list.length?" + "+(R.length-list.length)+" other bug"+(R.length-list.length===1?"":"s"):""} · ${esc(m.date)}${m.tester?" · Tester: "+esc(m.tester):""}${m.build?" · Build: "+esc(m.build):""}${m.decision?" · Decision: "+esc(m.decision):""}</p><p class="pm">${esc(summaryText())}</p>`+
+ $("#printArea").innerHTML=`<h1>Aspio Business App · QA test report</h1><p class="pm">Scope: <b>${esc(m.scope)}</b>${m.feature?" · Feature: <b>"+esc(m.feature)+"</b>":""} · ${R.length} item${R.length===1?"":"s"} · ${esc(m.date)}${m.tester?" · Tester: "+esc(m.tester):""}${m.build?" · Build: "+esc(m.build):""}${m.decision?" · Decision: "+esc(m.decision):""}</p><p class="pm">${esc(summaryText(R))}</p>`+
  R.map(x=>`<section class="pi s-${x.status.replace(/ /g,"_")}"><div class="ph"><b>${esc(x.id)}</b><span>${esc(x.module)} · ${esc(x.priority)}</span><em>${esc(x.status)}</em></div><h3>${esc(x.check)}</h3>${(x.labels||[]).length?`<div class="pl">Labels: ${esc(x.labels.join(", "))}</div>`:""}${x.expected?`<div class="pl">Expected result</div><p>${esc(x.expected)}</p>`:""}${x.steps.length?`<div class="pl">Steps</div><ol>${x.steps.map(s=>"<li>"+esc(s)+"</li>").join("")}</ol>`:""}<div class="pl">${esc(x.nlabel||"Actual result / notes")}</div><p>${x.notes?esc(x.notes):"<i>No notes recorded</i>"}</p>${(x.imgs||[]).map(id=>imgCache[id]).filter(Boolean).map(o=>`<img class="pimg" src="${o.url}" alt="Screenshot">`).join("")}</section>`).join("");
  document.body.classList.add("printing");
  const done=()=>{document.body.classList.remove("printing");window.removeEventListener("afterprint",done)};
  window.addEventListener("afterprint",done);
  setTimeout(()=>{try{window.print()}catch(e){}setTimeout(done,1500)},60)}
-function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;useMarketplace=$("#useMarketplace").checked;const n=scoped().length+(xOn()?extra.length:0)+(fOn()?frows().length:0)+(useLast?lrows().length:0)+(useDevelop?drows().length:0)+(useMarketplace?mrows().length:0);$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
-function drawScope(){$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${[...items,...(fOn()?FEAT:[]),...LAST,...DEVELOP,...MARKETPLACE].filter(i=>s[2](state(i.id).status)).length}</b></button>`).join("");refreshExp()}
+function refreshExp(){useF=$("#useF").checked;useLast=$("#useLast").checked;useDevelop=$("#useDevelop").checked;useMarketplace=$("#useMarketplace").checked;const n=rows(scoped()).length;$("#expCount").textContent=n+" item"+(n===1?"":"s")+" will be included";["goPdf","goCsv","goPrint"].forEach(i=>$("#"+i).disabled=!n)}
+function drawScope(){const all=[...items,...(fOn()?FEAT:[]),...LAST,...DEVELOP,...MARKETPLACE],touched=exportOnlyTouched();$("#scope").innerHTML=SCOPES.map(s=>`<button class="chip" type="button" data-sc="${s[0]}" aria-pressed="${scope===s[0]}">${s[1]} <b>${all.filter(i=>s[2](state(i.id).status)&&(!touched||isTouched(i.id))).length}</b></button>`).join("");refreshExp()}
 function openExp(){scope=[...items,...FEAT,...LAST,...DEVELOP,...MARKETPLACE].some(i=>state(i.id).status==="Failed")?"Failed":"all";$("#expMsg").textContent="";$("#useX").checked=extra.length>0;$("#useX").disabled=!extra.length;$("#xN").textContent=extra.length;$("#useFeat").checked=fIssues.length>0||FEAT.some(i=>state(i.id).status!=="Not tested");$("#fN").textContent=FEAT.length;$("#fiN").textContent=fIssues.length;$("#useLast").checked=LAST.some(i=>state(i.id).status!=="Not tested");$("#lN").textContent=LAST.length;$("#useDevelop").checked=DEVELOP.some(i=>state(i.id).status!=="Not tested");$("#dN").textContent=DEVELOP.length;$("#useMarketplace").checked=MARKETPLACE.some(i=>state(i.id).status!=="Not tested");$("#mktN").textContent=MARKETPLACE.length;fillExpLabels();$("#modal").hidden=false;drawScope();$("#goPdf").focus()}
 const closeExp=()=>{$("#modal").hidden=true};
 async function runExp(kind){const list=scoped(),msg=$("#expMsg");msg.textContent="";
@@ -539,7 +542,7 @@ $("#exp").onclick=openExp;$("#mx").onclick=closeExp;
 $("#modal").addEventListener("click",e=>{if(e.target.id==="modal")closeExp()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#modal").hidden)closeExp()});
 $("#scope").addEventListener("click",e=>{const b=e.target.closest("[data-sc]");if(b){scope=b.dataset.sc;drawScope()}});
-$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;$("#useMarketplace").onchange=refreshExp;
+$("#useF").onchange=refreshExp;$("#useX").onchange=refreshExp;$("#useLast").onchange=refreshExp;$("#useDevelop").onchange=refreshExp;$("#useMarketplace").onchange=refreshExp;$("#onlyTouched").onchange=()=>drawScope();
 $("#goPdf").onclick=()=>runExp("pdf");$("#goCsv").onclick=()=>runExp("csv");$("#goPrint").onclick=()=>runExp("print");
 
 $("#reset").onclick=()=>{if(confirm("Reset all test statuses, notes, logged bugs and new-feature items saved in this browser? (Your label list is kept.)")){[...Object.values(saved as any).flatMap((s:any)=>s.imgs||[]),...extra.flatMap(b=>b.imgs||[])].forEach(imgDel);saved={};store();extra=[];storeX();clearX();drawExtra();fIssues.flatMap(b=>b.imgs||[]).forEach(imgDel);fIssues=[];saveF();resetFi();drawFeat();drawFeatList();render();mf={s:""};renderMarketplace();syncReset()}};

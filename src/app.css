@@ -62,6 +62,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 @keyframes in{from{opacity:0;transform:translateY(-4px)}}
 .lbl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:var(--mut);margin:14px 0 6px}
 .exp{background:var(--soft);border-radius:10px;padding:10px 12px}
+.exp,.step span{white-space:pre-line}
 .step{display:flex;gap:10px;align-items:flex-start;padding:7px 0;cursor:pointer}
 .step input{width:18px;height:18px;margin-top:2px;accent-color:var(--pur);flex:none}
 .step input:checked+span{color:var(--mut);text-decoration:line-through}

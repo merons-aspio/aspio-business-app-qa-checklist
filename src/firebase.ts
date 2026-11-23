@@ -29,6 +29,7 @@ export const firebaseDisabled =
 export const firebaseEnabled = firebaseConfigured && !firebaseDisabled;
 
 export const useEmulators =
+  import.meta.env.DEV &&
   String(env.VITE_USE_FIREBASE_EMULATORS || "").toLowerCase() === "true";
 
 let app: FirebaseApp | null = null;

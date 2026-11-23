@@ -14,9 +14,15 @@ Screenshots stay in this browser's IndexedDB and are never uploaded.
 npm install
 npm run dev       # start the Vite dev server
 npm run typecheck # TypeScript only
-npm run build     # type-check + production build to dist/
+npm run build     # DOM check + app/API type-check + production build to dist/
 npm run preview   # serve the production build
+npm run verify    # DOM check + app and API type-checks (good CI/pre-push gate)
 ```
+
+`npm run build` also runs `scripts/check-dom.mjs`, which fails if `index.html`
+has duplicate IDs or if `src/` references an element ID that does not exist.
+That turns startup crashes such as `$(...).onchange` on a missing element into
+a build error instead of a blank production page.
 
 > Firebase SDK 11 is pinned on purpose: newer SDKs require Node 24, while this
 > project targets Node 22.
@@ -75,7 +81,8 @@ Useful switches:
 | Variable | Effect |
 | --- | --- |
 | `VITE_FIREBASE_DISABLED=true` | Force local-only mode. No sign-in gate, no sync. |
-| `VITE_USE_FIREBASE_EMULATORS=true` | Connect to the local Auth/Firestore emulators. |
+| `VITE_USE_FIREBASE_EMULATORS=true` | Connect to the local Auth/Firestore emulators. Only honored by `npm run dev`; production builds ignore it. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Server-only. Service-account JSON for the `/api/mcp` function. Never expose it in the browser. |
 
 If the `VITE_FIREBASE_*` values are missing, the app automatically runs in
 local-only mode and shows a "Local only" chip. Existing localStorage data is
@@ -96,6 +103,8 @@ chooser; use an `@aspio.se` email there.
 
 ### Deploy
 
+Firebase Hosting:
+
 ```bash
 npm run deploy   # build + deploy Hosting and Firestore rules
 ```
@@ -107,6 +116,38 @@ npm run build
 npx firebase deploy --only hosting
 npm run deploy:rules
 ```
+
+### Vercel
+
+`vercel.json` builds the static app with `@vercel/static-build` (output `dist/`)
+and the hosted MCP endpoint in `api/mcp.ts` with `@vercel/node`. The project
+targets Node 22 (`engines.node`), matching Firebase SDK 11.
+
+1. Import the repository into Vercel and keep the repository root as the
+   project root. The existing `vercel.json` handles build and routing; no
+   dashboard override is needed.
+2. Add these **Environment Variables** (Production and Preview) before the
+   first deploy:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_USE_FIREBASE_EMULATORS=false`
+   - `FIREBASE_SERVICE_ACCOUNT_JSON` — full service-account JSON on one line,
+     used only by `/api/mcp`
+3. `VITE_*` values are inlined at build time, so changing them requires a new
+   deployment.
+4. In Firebase Console → Authentication → Settings → **Authorized domains**,
+   add the Vercel production domain (for example
+   `aspio-business-app-qa-checklist.vercel.app`) and any custom domain.
+5. Deploy. `firebase-admin` is a runtime dependency because the API function
+   imports it; keep it in `dependencies`, not `devDependencies`.
+6. Optional: verify locally before pushing with `npm run build`.
+
+The fallback route serves `index.html` for app paths, while `/api/mcp` and
+Vite's hashed assets are served directly.
 
 ## How sync works
 
