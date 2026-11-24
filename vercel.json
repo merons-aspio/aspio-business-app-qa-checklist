@@ -1,5 +1,4 @@
 {
-  "framework": "vite",
   "builds": [
     { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
     { "src": "api/mcp.ts", "use": "@vercel/node", "config": { "maxDuration": 10 } }
