@@ -20,12 +20,34 @@ npm run verify    # DOM check + app and API type-checks (good CI/pre-push gate)
 ```
 
 `npm run build` also runs `scripts/check-dom.mjs`, which fails if `index.html`
-has duplicate IDs or if `src/` references an element ID that does not exist.
-That turns startup crashes such as `$(...).onchange` on a missing element into
-a build error instead of a blank production page.
+has duplicate IDs or if any file under `src/` references an element ID that
+does not exist. That turns startup crashes such as `$(...).onchange` on a
+missing element into a build error instead of a blank production page.
 
 > Firebase SDK 11 is pinned on purpose: newer SDKs require Node 24, while this
 > project targets Node 22.
+
+## Project structure
+
+```text
+index.html               static shell (IDs checked against src/ at build time)
+src/main.ts              app bootstrap, page rendering and event wiring
+src/backend.ts           auth gate, account bar and sync status UI
+src/sync.ts              Firestore read/write + realtime sync
+src/mcp.ts               admin-only MCP key panel
+src/firebase.ts          Firebase app/auth/Firestore initialisation
+src/data/                static checklist content
+  checklist.ts           main checklist + release sign-off groups
+  features.ts            new-feature checklist
+  last-week.ts           last week's changes
+  develop.ts             develop-branch checks
+  marketplace.ts         marketplace checks
+  types.ts               shared data shapes
+src/lib/dom.ts           escaping, querySelector, step parsing, label hues
+src/lib/images.ts        screenshot shrink + IndexedDB storage
+api/mcp.ts               hosted MCP endpoint (Vercel function)
+scripts/check-dom.mjs    DOM contract check run by build/verify
+```
 
 ## Firebase setup
 

@@ -6,8 +6,8 @@
  * break startup code such as `$("#someId").onchange = ...`. This script fails
  * the build when:
  *   - index.html contains duplicate element IDs, or
- *   - src/*.ts references a literal element ID that is not declared in
- *     index.html or injected by another module at runtime.
+ *   - any TypeScript file under src/ references a literal element ID that is
+ *     not declared in index.html or injected by another module at runtime.
  *
  * IDs created dynamically by src/backend.ts and src/mcp.ts are collected from
  * their HTML string literals and `.id = "..."` assignments.
@@ -19,7 +19,9 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const srcDir = join(root, "src");
 const html = readFileSync(join(root, "index.html"), "utf8");
-const srcFiles = readdirSync(srcDir).filter((f) => f.endsWith(".ts"));
+const srcFiles = readdirSync(srcDir, { recursive: true })
+  .map((f) => String(f))
+  .filter((f) => f.endsWith(".ts"));
 const src = srcFiles
   .map((f) => `\n/* ${f} */\n${readFileSync(join(srcDir, f), "utf8")}`)
   .join("\n");
