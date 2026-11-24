@@ -54,6 +54,7 @@ async function sha256hex(text: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** Hosted MCP endpoint served by the Vercel function in api/mcp.ts. */
 function buildMcpUrl(token: string): string {
   const host = window.location.origin;
   return `${host}/api/mcp?key=${encodeURIComponent(token)}`;

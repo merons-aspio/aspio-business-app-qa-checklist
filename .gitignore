@@ -1,10 +1,14 @@
 node_modules/
 dist/
+.env
 .env.local
 .env*.local
+.agents/
 
 # Firebase CLI / emulator artifacts
 .firebase/
 firebase-debug.log
 ui-debug.log
 firestore-debug.log
+
+.vercel

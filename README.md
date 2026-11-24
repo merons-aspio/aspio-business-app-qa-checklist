@@ -29,18 +29,18 @@ a build error instead of a blank production page.
 
 ## Firebase setup
 
-The project is already wired for Firebase project `qa-checklist-f4f61`
+The project is already wired for Firebase project `test-project-da21e`
 (`.firebaserc`, `firebase.json`, `firestore.rules`). Complete these console
 steps once:
 
-1. Open the [Firebase console](https://console.firebase.google.com/project/qa-checklist-f4f61/overview).
+1. Open the [Firebase console](https://console.firebase.google.com/project/test-project-da21e/overview).
 2. **Firestore Database** → *Create database* → start in **production mode**
    and pick a region close to the team.
 3. **Authentication** → *Get started* → **Sign-in method** → enable **Google**
    and choose a support email.
 4. **Authentication** → *Settings* → **Authorized domains**. `localhost` is
    added by default. Add the production domains you will use, e.g.
-   `qa-checklist-f4f61.web.app`, `qa-checklist-f4f61.firebaseapp.com`, and any
+   `test-project-da21e.web.app`, `test-project-da21e.firebaseapp.com`, and any
    custom domain.
 5. **Project settings** → *Your apps* → Web app → copy the config values into
    `.env.local` (see below).
@@ -65,9 +65,9 @@ cp .env.example .env.local
 
 ```dotenv
 VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=qa-checklist-f4f61.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=qa-checklist-f4f61
-VITE_FIREBASE_STORAGE_BUCKET=qa-checklist-f4f61.firebasestorage.app
+VITE_FIREBASE_AUTH_DOMAIN=test-project-da21e.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=test-project-da21e
+VITE_FIREBASE_STORAGE_BUCKET=test-project-da21e.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 VITE_USE_FIREBASE_EMULATORS=false
@@ -119,13 +119,13 @@ npm run deploy:rules
 
 ### Vercel
 
-`vercel.json` builds the static app with `@vercel/static-build` (output `dist/`)
-and the hosted MCP endpoint in `api/mcp.ts` with `@vercel/node`. The project
-targets Node 22 (`engines.node`), matching Firebase SDK 11.
+`vercel.json` uses the default Vercel pipeline: `npm run build` produces the
+static app in `dist/`, and the hosted MCP endpoint in `api/mcp.ts` is
+auto-detected as a serverless function. The project targets Node 22
+(`engines.node`), matching Firebase SDK 11.
 
 1. Import the repository into Vercel and keep the repository root as the
-   project root. The existing `vercel.json` handles build and routing; no
-   dashboard override is needed.
+   project root. No dashboard build/output overrides are needed.
 2. Add these **Environment Variables** (Production and Preview) before the
    first deploy:
    - `VITE_FIREBASE_API_KEY`
@@ -146,8 +146,9 @@ targets Node 22 (`engines.node`), matching Firebase SDK 11.
    imports it; keep it in `dependencies`, not `devDependencies`.
 6. Optional: verify locally before pushing with `npm run build`.
 
-The fallback route serves `index.html` for app paths, while `/api/mcp` and
-Vite's hashed assets are served directly.
+Static assets under `/assets/*` are served directly from `dist/`; no SPA
+rewrite is configured because the app switches pages client-side without URL
+routing.
 
 ## How sync works
 
@@ -176,18 +177,15 @@ qaRuns/current
 - The Reset button clears the shared run's tests, bugs and issues for everyone;
   labels and sign-off fields are kept, matching the local reset behavior.
 
-## Fallback and rollback
+## Rollback
 
-The original pre-Vite files are preserved in `backup-pre-migration/`:
+The pre-Vite app is preserved in the `pre-vite-migration` branch (local and
+remote). To inspect or restore it:
 
-- `backup-pre-migration/index.html`
-- `backup-pre-migration/style.css`
-- `backup-pre-migration/app.js`
-
-To roll back to the pre-migration app, copy those three files over
-`index.html`, `css/style.css`, and `js/app.js` (the originals in `css/` and
-`js/` are still untouched).
+```bash
+git show pre-vite-migration:index.html
+git checkout pre-vite-migration -- index.html css/style.css js/app.js
+```
 
 For a local-only session without changing files, set
-`VITE_FIREBASE_DISABLED=true` in `.env.local` and restart the dev server. The
-pre-migration Git branch is `pre-vite-migration`.
+`VITE_FIREBASE_DISABLED=true` in `.env.local` and restart the dev server.

@@ -3,7 +3,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
   onSnapshot,
   onSnapshotsInSync,
@@ -541,10 +540,3 @@ async function clearCollection(name: "tests" | "bugs" | "issues") {
   }
 }
 
-/** Read-only helper for diagnostics. */
-export async function remoteRunExists(): Promise<boolean> {
-  const fb = getFirebase();
-  if (!fb) return false;
-  const snap = await getDoc(doc(fb.db, "qaRuns", RUN));
-  return snap.exists();
-}
